@@ -3,16 +3,73 @@ import CryptoKit
 import Foundation
 import LocalAuthentication
 
+struct VaultPhoto: Codable, Equatable, Identifiable {
+    let id: UUID
+    let fileName: String
+    let addedAt: Date
+    let width: Int
+    let height: Int
+}
+
 struct PrivacyVaultSnapshot: Codable, Equatable {
     var messages: [ChatMessage]
     var todayItems: [TodayItem]
+    var photos: [VaultPhoto]
     var updatedAt: Date
 
     static let empty = PrivacyVaultSnapshot(
         messages: [],
         todayItems: [],
+        photos: [],
         updatedAt: .distantPast
     )
+
+    init(
+        messages: [ChatMessage],
+        todayItems: [TodayItem],
+        photos: [VaultPhoto],
+        updatedAt: Date
+    ) {
+        self.messages = messages
+        self.todayItems = todayItems
+        self.photos = photos
+        self.updatedAt = updatedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        messages = try container.decodeIfPresent(
+            [ChatMessage].self,
+            forKey: .messages
+        ) ?? []
+        todayItems = try container.decodeIfPresent(
+            [TodayItem].self,
+            forKey: .todayItems
+        ) ?? []
+        photos = try container.decodeIfPresent(
+            [VaultPhoto].self,
+            forKey: .photos
+        ) ?? []
+        updatedAt = try container.decodeIfPresent(
+            Date.self,
+            forKey: .updatedAt
+        ) ?? .distantPast
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(messages, forKey: .messages)
+        try container.encode(todayItems, forKey: .todayItems)
+        try container.encode(photos, forKey: .photos)
+        try container.encode(updatedAt, forKey: .updatedAt)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case messages
+        case todayItems
+        case photos
+        case updatedAt
+    }
 }
 
 enum EncryptedDataStoreError: LocalizedError {
@@ -89,6 +146,15 @@ struct EncryptedDataStore {
         try FileManager.default.removeItem(at: fileURL)
     }
 
+    func store(at fileURL: URL) -> EncryptedDataStore {
+        EncryptedDataStore(
+            fileURL: fileURL,
+            keychain: keychain,
+            keyName: keyName,
+            explicitKey: explicitKey
+        )
+    }
+
     private func encryptionKey() throws -> SymmetricKey {
         if let explicitKey {
             return explicitKey
@@ -127,6 +193,12 @@ final class PrivacyVaultStore: ObservableObject {
     @Published private(set) var authenticationMethod = "设备密码"
 
     private let storage: EncryptedDataStore
+
+    private var attachmentDirectory: URL {
+        storage.fileURL
+            .deletingLastPathComponent()
+            .appendingPathComponent("PrivacyVaultPhotos", isDirectory: true)
+    }
 
     init(storage: EncryptedDataStore = EncryptedDataStore()) {
         self.storage = storage
@@ -200,6 +272,45 @@ final class PrivacyVaultStore: ObservableObject {
         (try? loadDocument())?.todayItems ?? []
     }
 
+    func storedPhotos() throws -> [VaultPhoto] {
+        try loadDocument().photos
+    }
+
+    @discardableResult
+    func importPhoto(data: Data, width: Int, height: Int) throws -> VaultPhoto {
+        let id = UUID()
+        let photo = VaultPhoto(
+            id: id,
+            fileName: "\(id.uuidString).bin",
+            addedAt: Date(),
+            width: width,
+            height: height
+        )
+        let photoStore = storage.store(at: photoURL(for: photo))
+        try photoStore.save(data)
+
+        var document = try loadDocument()
+        document.photos.append(photo)
+        do {
+            try saveDocument(document)
+            return photo
+        } catch {
+            try? photoStore.delete()
+            throw error
+        }
+    }
+
+    func decryptedPhotoData(for photo: VaultPhoto) throws -> Data? {
+        try storage.store(at: photoURL(for: photo)).load()
+    }
+
+    func deletePhoto(_ photo: VaultPhoto) throws {
+        var document = try loadDocument()
+        document.photos.removeAll { $0.id == photo.id }
+        try saveDocument(document)
+        try? storage.store(at: photoURL(for: photo)).delete()
+    }
+
     func clearChatHistory() throws {
         var document = try loadDocument()
         document.messages.removeAll()
@@ -211,8 +322,15 @@ final class PrivacyVaultStore: ObservableObject {
 
     func clearAll() throws {
         try storage.delete()
+        if FileManager.default.fileExists(atPath: attachmentDirectory.path) {
+            try FileManager.default.removeItem(at: attachmentDirectory)
+        }
         snapshot = .empty
         authenticationError = nil
+    }
+
+    private func photoURL(for photo: VaultPhoto) -> URL {
+        attachmentDirectory.appendingPathComponent(photo.fileName, isDirectory: false)
     }
 
     private func loadDocument() throws -> PrivacyVaultSnapshot {

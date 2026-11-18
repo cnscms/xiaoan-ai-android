@@ -1,5 +1,7 @@
 import Foundation
+import PhotosUI
 import SwiftUI
+import UIKit
 
 struct PrivacyVaultView: View {
     @ObservedObject var vault: PrivacyVaultStore
@@ -10,6 +12,10 @@ struct PrivacyVaultView: View {
     @State private var selectedSection = 0
     @State private var showClearConfirmation = false
     @State private var actionError: String?
+    @State private var selectedPhotoItems: [PhotosPickerItem] = []
+    @State private var isImportingPhotos = false
+    @State private var previewPhoto: VaultPhoto?
+    @State private var photoPendingDeletion: VaultPhoto?
 
     private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -44,6 +50,19 @@ struct PrivacyVaultView: View {
                         }
                     }
                 }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if !vault.isLocked {
+                        PhotosPicker(
+                            selection: $selectedPhotoItems,
+                            maxSelectionCount: 20,
+                            matching: .images,
+                            photoLibrary: .shared()
+                        ) {
+                            Image(systemName: "photo.badge.plus")
+                        }
+                        .accessibilityLabel("从相册添加加密照片")
+                    }
+                }
             }
             .alert("清空隐私保险箱？", isPresented: $showClearConfirmation) {
                 Button("取消", role: .cancel) {}
@@ -51,11 +70,41 @@ struct PrivacyVaultView: View {
                     clearVault()
                 }
             } message: {
-                Text("这会删除加密保存的聊天历史和今日待办，无法恢复。")
+                Text("这会删除加密保存的聊天历史、今日待办和照片，无法恢复。")
+            }
+            .confirmationDialog(
+                "移除这张照片？",
+                isPresented: Binding(
+                    get: { photoPendingDeletion != nil },
+                    set: { if !$0 { photoPendingDeletion = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("移除照片", role: .destructive) {
+                    if let photo = photoPendingDeletion {
+                        deletePhoto(photo)
+                    }
+                }
+                Button("取消", role: .cancel) {}
+            }
+            .fullScreenCover(item: $previewPhoto) { photo in
+                VaultPhotoPreview(vault: vault, photo: photo)
             }
             .task {
                 if vault.isLocked {
                     _ = await vault.unlock()
+                }
+            }
+            .onChange(of: selectedPhotoItems) { items in
+                guard !items.isEmpty else {
+                    return
+                }
+                importPhotos(items)
+            }
+            .onChange(of: vault.isLocked) { locked in
+                if locked {
+                    previewPhoto = nil
+                    selectedPhotoItems.removeAll()
                 }
             }
             .onChange(of: scenePhase) { phase in
@@ -170,6 +219,7 @@ struct PrivacyVaultView: View {
             Picker("内容", selection: $selectedSection) {
                 Text("对话").tag(0)
                 Text("待办").tag(1)
+                Text("照片").tag(2)
             }
             .pickerStyle(.segmented)
             .padding(.horizontal, 16)
@@ -178,8 +228,17 @@ struct PrivacyVaultView: View {
             List {
                 if selectedSection == 0 {
                     messageSection
-                } else {
+                } else if selectedSection == 1 {
                     noteSection
+                } else {
+                    photoSection
+                }
+
+                if isImportingPhotos {
+                    Section {
+                        Label("正在加密导入照片…", systemImage: "lock.fill")
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 if let actionError, !actionError.isEmpty {
@@ -195,7 +254,7 @@ struct PrivacyVaultView: View {
                         showClearConfirmation = true
                     }
                 } footer: {
-                    Text("清空会同时删除加密的聊天历史和今日待办。")
+                    Text("清空会同时删除加密的聊天历史、今日待办和照片。")
                 }
             }
             .listStyle(.insetGrouped)
@@ -273,6 +332,46 @@ struct PrivacyVaultView: View {
         }
     }
 
+    @ViewBuilder
+    private var photoSection: some View {
+        if vault.snapshot.photos.isEmpty {
+            Section {
+                emptyState(
+                    icon: "photo.on.rectangle.angled",
+                    title: "还没有加密照片",
+                    detail: "点右上角照片按钮，从系统相册选择图片"
+                )
+            }
+        } else {
+            Section {
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 96), spacing: 8)],
+                    spacing: 8
+                ) {
+                    ForEach(vault.snapshot.photos.sorted {
+                        $0.addedAt > $1.addedAt
+                    }) { photo in
+                        VaultPhotoCell(
+                            vault: vault,
+                            photo: photo,
+                            onOpen: {
+                                previewPhoto = photo
+                            },
+                            onDelete: {
+                                photoPendingDeletion = photo
+                            }
+                        )
+                    }
+                }
+                .padding(.vertical, 4)
+            } header: {
+                Text("加密照片 · \(vault.snapshot.photos.count) 张")
+            } footer: {
+                Text("每张照片单独使用 AES-GCM 加密，仅在保险箱解锁时显示。")
+            }
+        }
+    }
+
     private func emptyState(
         icon: String,
         title: String,
@@ -327,6 +426,177 @@ struct PrivacyVaultView: View {
             actionError = nil
         } catch {
             actionError = error.localizedDescription
+        }
+    }
+
+    private func importPhotos(_ items: [PhotosPickerItem]) {
+        guard !isImportingPhotos else {
+            return
+        }
+        isImportingPhotos = true
+        actionError = nil
+        selectedSection = 2
+
+        Task {
+            var imported = 0
+            var failed = 0
+
+            for item in items {
+                do {
+                    guard let data = try await item.loadTransferable(type: Data.self) else {
+                        failed += 1
+                        continue
+                    }
+                    let prepared = try await Task.detached(priority: .userInitiated) {
+                        try VaultPhotoProcessor.prepare(data)
+                    }.value
+                    try vault.importPhoto(
+                        data: prepared.data,
+                        width: prepared.width,
+                        height: prepared.height
+                    )
+                    imported += 1
+                } catch {
+                    failed += 1
+                }
+            }
+
+            selectedPhotoItems.removeAll()
+            isImportingPhotos = false
+            if failed > 0 {
+                actionError = imported > 0
+                    ? "已加密导入 \(imported) 张，\(failed) 张失败"
+                    : "照片导入失败，请重试"
+            }
+        }
+    }
+
+    private func deletePhoto(_ photo: VaultPhoto) {
+        do {
+            try vault.deletePhoto(photo)
+            actionError = nil
+        } catch {
+            actionError = "删除照片失败：\(error.localizedDescription)"
+        }
+        photoPendingDeletion = nil
+    }
+}
+
+private struct VaultPhotoCell: View {
+    @ObservedObject var vault: PrivacyVaultStore
+    let photo: VaultPhoto
+    let onOpen: () -> Void
+    let onDelete: () -> Void
+
+    @State private var image: UIImage?
+    @State private var failed = false
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            Group {
+                if let image {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else if failed {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.title2)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color.secondary.opacity(0.10))
+                } else {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color.secondary.opacity(0.10))
+                }
+            }
+            .frame(height: 104)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .onTapGesture {
+                if image != nil {
+                    onOpen()
+                }
+            }
+
+            Button(action: onDelete) {
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 25, height: 25)
+                    .background(.black.opacity(0.58))
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .padding(5)
+            .accessibilityLabel("移除照片")
+        }
+        .task(id: photo.id) {
+            loadPhoto()
+        }
+    }
+
+    private func loadPhoto() {
+        do {
+            guard let data = try vault.decryptedPhotoData(for: photo) else {
+                failed = true
+                return
+            }
+            image = UIImage(data: data)
+            failed = image == nil
+        } catch {
+            failed = true
+        }
+    }
+}
+
+private struct VaultPhotoPreview: View {
+    @ObservedObject var vault: PrivacyVaultStore
+    let photo: VaultPhoto
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var image: UIImage?
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .ignoresSafeArea()
+            } else {
+                ProgressView()
+                    .tint(.white)
+            }
+
+            VStack {
+                HStack {
+                    Spacer()
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 38, height: 38)
+                            .background(.black.opacity(0.58))
+                            .clipShape(Circle())
+                    }
+                    .accessibilityLabel("关闭照片")
+                }
+                .padding(14)
+                Spacer()
+            }
+        }
+        .task(id: photo.id) {
+            do {
+                if let data = try vault.decryptedPhotoData(for: photo) {
+                    image = UIImage(data: data)
+                }
+            } catch {
+                image = nil
+            }
         }
     }
 }
