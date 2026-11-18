@@ -60,8 +60,8 @@ fun SettingsScreen(
             if (config.otaUrl.isBlank() && config.websocketUrl.isBlank()) {
                 config.copy(
                     name = "Android",
-                    otaUrl = "https://api.tenclass.net/xiaozhi/ota/",
-                    websocketUrl = "wss://api.tenclass.net/xiaozhi/v1/",
+                    otaUrl = "http://sql.ms48.com:8002/xiaozhi/ota/",
+                    websocketUrl = "ws://sql.ms48.com:8001/xiaozhi/v1/",
                     macAddress = (1..6).joinToString(":") {
                         "%02x".format((0..255).random())
                     }
@@ -131,7 +131,7 @@ fun SettingsScreen(
                 CenterAlignedTopAppBar(
                     title = {
                         Text(
-                            text = "小智设置",
+                            text = "小安设置",
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
                             color = AethericColors.OnSurface
@@ -244,7 +244,7 @@ fun SettingsScreen(
                             fontWeight = FontWeight.Medium
                         )
                         Text(
-                            "1.默认连接小智官方服务",
+                            "1.默认连接小安服务",
                             color = AethericColors.OnSurfaceVariant.copy(alpha = 0.5f),
                             fontSize = 12.sp
                         )

@@ -1,6 +1,6 @@
-# 小智AI Android客户端
+# 小安 AI 客户端
 
-一个模仿豆包聊天的Android智能语音对话应用，基于小智的后端服务。
+一个模仿豆包聊天的智能语音对话应用，连接小安后端服务。
 
 ## 📱 功能特性
 
@@ -24,11 +24,23 @@
 后端管理平台：
 https://xiaozhi.me/
 
-OTA地址可使用小智官方地址：  
-https://api.tenclass.net/xiaozhi/ota/
+本项目默认使用我们的服务器：
+
+```text
+OTA:       http://sql.ms48.com:8002/xiaozhi/ota/
+WebSocket: ws://sql.ms48.com:8001/xiaozhi/v1/
+```
 
 也可自行搭建后端服务：  
 [https://github.com/xinnan-tech/xiaozhi-esp32-server](xiaozhi-esp32-server)
+
+## iOS 客户端
+
+原生 SwiftUI 客户端位于 `ios/`，共享协议 fixtures 位于 `protocol/`。
+当前已实现 OTA、WebSocket、设备绑定、文字消息，以及 Opus 音频采集与播放。
+
+- `XiaoZhiAI`：小安域名版，连接 `sql.ms48.com`
+- `XiaoZhiAILAN`：小安内网版，连接 `192.168.0.20`，可和域名版同时安装
 
 ## 📚 文档
 

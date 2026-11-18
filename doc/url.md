@@ -1,5 +1,6 @@
-小智官网OTA地址：
-https://api.tenclass.net/xiaozhi/ota/
+本项目主服务器：
 
-WSS地址:
-wss://api.tenclass.net/xiaozhi/v1/
+```text
+OTA:       http://sql.ms48.com:8002/xiaozhi/ota/
+WebSocket: ws://sql.ms48.com:8001/xiaozhi/v1/
+```

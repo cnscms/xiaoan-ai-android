@@ -1,7 +1,7 @@
 package com.xiaozhi.ai.data
 
 /**
- * 小智配置数据类
+ * 小安配置数据类
  */
 data class XiaozhiConfig(
     val id: String,
