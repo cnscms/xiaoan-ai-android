@@ -40,10 +40,12 @@ struct TodayItem: Codable, Equatable, Identifiable {
 
         type = try container.decodeIfPresent(String.self, forKey: .type) ?? "note"
         let decodedTitle = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
-        let decodedContent = (try container.decodeIfPresent(
+        let contentValue = try container.decodeIfPresent(
             String.self,
             forKey: .content
-        )) ?? (try container.decodeIfPresent(String.self, forKey: .text)) ?? ""
+        )
+        let textValue = try container.decodeIfPresent(String.self, forKey: .text)
+        let decodedContent = contentValue ?? textValue ?? ""
         title = decodedTitle.isEmpty ? decodedContent : decodedTitle
         content = decodedContent
         createdAtMs = try container.decodeIfPresent(

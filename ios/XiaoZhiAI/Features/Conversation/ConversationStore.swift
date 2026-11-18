@@ -322,7 +322,7 @@ final class ConversationStore: ObservableObject {
                 guard let self else {
                     return
                 }
-                await self.handle(event)
+                self.handle(event)
             }
         }
     }
