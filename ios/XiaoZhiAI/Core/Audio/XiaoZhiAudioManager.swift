@@ -244,7 +244,7 @@ final class XiaoZhiAudioManager {
         try session.setCategory(
             .playAndRecord,
             mode: .voiceChat,
-            options: [.defaultToSpeaker, .allowBluetoothHFP]
+            options: [.defaultToSpeaker, .allowBluetooth]
         )
         try session.setPreferredIOBufferDuration(0.02)
         try session.setActive(true)
