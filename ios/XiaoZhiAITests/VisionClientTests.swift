@@ -13,11 +13,15 @@ final class VisionClientTests: XCTestCase {
         )
         form.finish()
 
-        let body = try XCTUnwrap(String(data: form.data, encoding: .utf8))
-        let questionRange = try XCTUnwrap(body.range(of: "name=\"question\""))
-        let fileRange = try XCTUnwrap(body.range(of: "name=\"file\""))
+        let body = form.data
+        let questionRange = try XCTUnwrap(
+            body.range(of: Data("name=\"question\"".utf8))
+        )
+        let fileRange = try XCTUnwrap(
+            body.range(of: Data("name=\"file\"".utf8))
+        )
         XCTAssertLessThan(questionRange.lowerBound, fileRange.lowerBound)
-        XCTAssertTrue(body.contains("--test-boundary"))
+        XCTAssertNotNil(body.range(of: Data("--test-boundary".utf8)))
     }
 
     func testVisionResponseDecodesText() throws {
