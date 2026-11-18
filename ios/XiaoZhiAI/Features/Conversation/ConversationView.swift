@@ -78,10 +78,16 @@ struct ConversationView: View {
             )
         }
         .sheet(isPresented: $showPrivacyVault) {
-            PrivacyVaultView(vault: store.privacyVault) {
-                store.clearHistory()
-                dashboard.clearSensitiveCache()
-            }
+            PrivacyVaultView(
+                vault: store.privacyVault,
+                onClearAll: {
+                    store.clearHistory()
+                    dashboard.clearSensitiveCache()
+                },
+                onAskPhoto: { photo, question in
+                    try await store.askAboutPhoto(photo, question: question)
+                }
+            )
         }
         .fullScreenCover(
             item: Binding(

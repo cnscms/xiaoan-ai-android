@@ -63,6 +63,7 @@ final class ConversationStore: ObservableObject {
 
     private let otaClient: OtaClient
     private let socket: XiaozhiWebSocketClient
+    private let visionClient: VisionClient
     private let audioManager = XiaoZhiAudioManager()
     private let defaults: UserDefaults
     private let historyStorageKey = "xiaoan.chat.history.v1"
@@ -75,12 +76,14 @@ final class ConversationStore: ObservableObject {
         configStore: AppConfigStore,
         otaClient: OtaClient = OtaClient(),
         socket: XiaozhiWebSocketClient = XiaozhiWebSocketClient(),
+        visionClient: VisionClient = VisionClient(),
         defaults: UserDefaults = .standard,
         privacyVault: PrivacyVaultStore
     ) {
         self.configStore = configStore
         self.otaClient = otaClient
         self.socket = socket
+        self.visionClient = visionClient
         self.defaults = defaults
         self.privacyVault = privacyVault
         Self.migrateLegacyHistory(
@@ -262,6 +265,47 @@ final class ConversationStore: ObservableObject {
         videoTask?.cancel()
         videoTask = nil
         videoRequest = nil
+    }
+
+    func askAboutPhoto(
+        _ photo: VaultPhoto,
+        question: String
+    ) async throws -> String {
+        let value = question.trimmingCharacters(in: .whitespacesAndNewlines)
+        let prompt = value.isEmpty ? "你看到了什么？请详细描述一下。" : value
+        guard !privacyVault.isLocked else {
+            throw NSError(
+                domain: "Xiaoan.PrivacyVault",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "请先解锁隐私保险箱"]
+            )
+        }
+        guard let photoData = try privacyVault.decryptedPhotoData(for: photo) else {
+            throw VisionClient.VisionError.emptyPhoto
+        }
+
+        do {
+            let prepared = try await Task.detached(priority: .userInitiated) {
+                try VaultPhotoProcessor.prepareForVision(photoData)
+            }.value
+            let answer = try await visionClient.explain(
+                config: configStore.config,
+                question: prompt,
+                imageData: prepared.data
+            )
+            appendMessage(
+                ChatMessage(
+                    role: .user,
+                    content: "📷 请小安看照片：\(prompt)"
+                )
+            )
+            appendMessage(ChatMessage(role: .assistant, content: answer))
+            errorMessage = nil
+            return answer
+        } catch {
+            errorMessage = error.localizedDescription
+            throw error
+        }
     }
 
     func clearHistory() {

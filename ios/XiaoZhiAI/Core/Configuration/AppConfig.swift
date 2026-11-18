@@ -30,6 +30,15 @@ enum ServerEnvironment: String {
         }
     }
 
+    var defaultVisionURL: String {
+        switch self {
+        case .domain:
+            return "http://sql.ms48.com:8003/mcp/vision/explain"
+        case .lan:
+            return "http://192.168.0.20:8003/mcp/vision/explain"
+        }
+    }
+
     var displayName: String {
         switch self {
         case .domain:
@@ -49,9 +58,14 @@ struct AppConfig: Codable, Equatable {
         ServerEnvironment.current.defaultWebSocketURL
     }
 
+    static var defaultVisionURL: String {
+        ServerEnvironment.current.defaultVisionURL
+    }
+
     var displayName: String
     var otaURLString: String
     var websocketURLString: String
+    var visionURLString: String
     var token: String
     var clientID: String
     var deviceID: String
@@ -64,6 +78,7 @@ struct AppConfig: Codable, Equatable {
         displayName: String = ServerEnvironment.current.displayName,
         otaURLString: String = AppConfig.defaultOTAURL,
         websocketURLString: String = AppConfig.defaultWebSocketURL,
+        visionURLString: String = AppConfig.defaultVisionURL,
         token: String = "",
         clientID: String,
         deviceID: String,
@@ -75,6 +90,7 @@ struct AppConfig: Codable, Equatable {
         self.displayName = displayName
         self.otaURLString = otaURLString
         self.websocketURLString = websocketURLString
+        self.visionURLString = visionURLString
         self.token = token
         self.clientID = clientID
         self.deviceID = deviceID
@@ -94,6 +110,10 @@ struct AppConfig: Codable, Equatable {
             String.self,
             forKey: .websocketURLString
         ) ?? AppConfig.defaultWebSocketURL
+        visionURLString = try container.decodeIfPresent(
+            String.self,
+            forKey: .visionURLString
+        ) ?? AppConfig.defaultVisionURL
         token = try container.decodeIfPresent(String.self, forKey: .token) ?? ""
         clientID = try container.decodeIfPresent(String.self, forKey: .clientID) ?? ""
         deviceID = try container.decodeIfPresent(String.self, forKey: .deviceID) ?? ""
@@ -113,6 +133,7 @@ struct AppConfig: Codable, Equatable {
         case displayName
         case otaURLString
         case websocketURLString
+        case visionURLString
         case token
         case clientID
         case deviceID
@@ -130,6 +151,10 @@ struct AppConfig: Codable, Equatable {
         Self.networkURL(from: websocketURLString, schemes: ["ws", "wss"])
     }
 
+    var visionURL: URL? {
+        Self.networkURL(from: visionURLString, schemes: ["http", "https"])
+    }
+
     var isComplete: Bool {
         !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && (otaURL != nil || websocketURL != nil)
@@ -140,6 +165,7 @@ struct AppConfig: Codable, Equatable {
         displayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         otaURLString = otaURLString.trimmingCharacters(in: .whitespacesAndNewlines)
         websocketURLString = websocketURLString.trimmingCharacters(in: .whitespacesAndNewlines)
+        visionURLString = visionURLString.trimmingCharacters(in: .whitespacesAndNewlines)
         token = token.trimmingCharacters(in: .whitespacesAndNewlines)
         clientID = clientID.trimmingCharacters(in: .whitespacesAndNewlines)
         deviceID = deviceID.trimmingCharacters(in: .whitespacesAndNewlines)

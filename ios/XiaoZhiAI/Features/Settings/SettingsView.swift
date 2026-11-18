@@ -42,6 +42,10 @@ struct SettingsView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .keyboardType(.URL)
+                    TextField("视觉分析地址", text: $draft.visionURLString)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.URL)
                     SecureField("Token（服务端关闭鉴权时留空）", text: $draft.token)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
@@ -141,12 +145,13 @@ struct SettingsView: View {
                     Button("恢复当前版本默认地址") {
                         draft.otaURLString = AppConfig.defaultOTAURL
                         draft.websocketURLString = AppConfig.defaultWebSocketURL
+                        draft.visionURLString = AppConfig.defaultVisionURL
                     }
                 } footer: {
                     Text(
                         ServerEnvironment.current == .lan
-                            ? "内网版默认连接 192.168.0.20:8002 / 8001。"
-                            : "域名版默认连接 sql.ms48.com:8002 / 8001。生产环境建议改用 HTTPS/WSS。"
+                            ? "内网版默认使用 192.168.0.20:8002 / 8001 / 8003。"
+                            : "域名版默认使用 sql.ms48.com:8002 / 8001 / 8003。生产环境建议改用 HTTPS/WSS。"
                     )
                 }
 

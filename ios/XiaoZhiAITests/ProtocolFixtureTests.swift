@@ -71,8 +71,13 @@ final class ProtocolFixtureTests: XCTestCase {
         let config = AppConfig(clientID: UUID().uuidString, deviceID: "02:00:00:00:00:01")
         XCTAssertEqual(config.otaURLString, "http://sql.ms48.com:8002/xiaozhi/ota/")
         XCTAssertEqual(config.websocketURLString, "ws://sql.ms48.com:8001/xiaozhi/v1/")
+        XCTAssertEqual(
+            config.visionURLString,
+            "http://sql.ms48.com:8003/mcp/vision/explain"
+        )
         XCTAssertNotNil(config.otaURL)
         XCTAssertNotNil(config.websocketURL)
+        XCTAssertNotNil(config.visionURL)
         XCTAssertTrue(config.isComplete)
     }
 
@@ -84,6 +89,10 @@ final class ProtocolFixtureTests: XCTestCase {
         XCTAssertEqual(
             ServerEnvironment.lan.defaultWebSocketURL,
             "ws://192.168.0.20:8001/xiaozhi/v1/"
+        )
+        XCTAssertEqual(
+            ServerEnvironment.lan.defaultVisionURL,
+            "http://192.168.0.20:8003/mcp/vision/explain"
         )
         XCTAssertEqual(ServerEnvironment.lan.displayName, "小安内网")
     }
@@ -106,6 +115,10 @@ final class ProtocolFixtureTests: XCTestCase {
         XCTAssertEqual(config.weatherCity, "眉山")
         XCTAssertEqual(config.weatherLatitude, 30.05, accuracy: 0.001)
         XCTAssertEqual(config.weatherLongitude, 103.83, accuracy: 0.001)
+        XCTAssertEqual(
+            config.visionURLString,
+            "http://sql.ms48.com:8003/mcp/vision/explain"
+        )
     }
 
     func testChatHistoryRoundTrip() throws {

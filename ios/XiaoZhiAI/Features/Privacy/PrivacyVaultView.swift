@@ -6,6 +6,7 @@ import UIKit
 struct PrivacyVaultView: View {
     @ObservedObject var vault: PrivacyVaultStore
     let onClearAll: () -> Void
+    let onAskPhoto: (VaultPhoto, String) async throws -> String
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
@@ -88,7 +89,11 @@ struct PrivacyVaultView: View {
                 Button("取消", role: .cancel) {}
             }
             .fullScreenCover(item: $previewPhoto) { photo in
-                VaultPhotoPreview(vault: vault, photo: photo)
+                VaultPhotoPreview(
+                    vault: vault,
+                    photo: photo,
+                    onAsk: onAskPhoto
+                )
             }
             .task {
                 if vault.isLocked {
@@ -552,9 +557,14 @@ private struct VaultPhotoCell: View {
 private struct VaultPhotoPreview: View {
     @ObservedObject var vault: PrivacyVaultStore
     let photo: VaultPhoto
+    let onAsk: (VaultPhoto, String) async throws -> String
 
     @Environment(\.dismiss) private var dismiss
     @State private var image: UIImage?
+    @State private var question = "你看到了什么？请详细描述一下。"
+    @State private var answer: String?
+    @State private var askError: String?
+    @State private var isAsking = false
 
     var body: some View {
         ZStack {
@@ -587,6 +597,10 @@ private struct VaultPhotoPreview: View {
                 }
                 .padding(14)
                 Spacer()
+
+                askPanel
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 14)
             }
         }
         .task(id: photo.id) {
@@ -597,6 +611,90 @@ private struct VaultPhotoPreview: View {
             } catch {
                 image = nil
             }
+        }
+    }
+
+    private var askPanel: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Label(
+                "让小安看图时，照片会临时发送到视觉分析服务",
+                systemImage: "eye.fill"
+            )
+            .font(.caption)
+            .foregroundStyle(.white.opacity(0.72))
+
+            HStack(spacing: 8) {
+                TextField("问小安这张照片…", text: $question)
+                    .textFieldStyle(.plain)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 10)
+                    .background(.white.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .submitLabel(.send)
+                    .onSubmit {
+                        ask()
+                    }
+
+                Button(action: ask) {
+                    if isAsking {
+                        ProgressView()
+                            .tint(.white)
+                            .frame(width: 42, height: 42)
+                    } else {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 42, height: 42)
+                    }
+                }
+                .background(Color(red: 0.16, green: 0.42, blue: 0.95))
+                .clipShape(Circle())
+                .buttonStyle(.plain)
+                .disabled(isAsking || question.trimmingCharacters(
+                    in: .whitespacesAndNewlines
+                ).isEmpty)
+                .accessibilityLabel("让小安分析照片")
+            }
+
+            if let askError, !askError.isEmpty {
+                Text(askError)
+                    .font(.footnote)
+                    .foregroundStyle(Color(red: 1.0, green: 0.55, blue: 0.55))
+            }
+
+            if let answer, !answer.isEmpty {
+                ScrollView {
+                    Text(answer)
+                        .font(.subheadline)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                }
+                .frame(maxHeight: 150)
+            }
+        }
+        .padding(12)
+        .background(.black.opacity(0.72))
+        .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
+    }
+
+    private func ask() {
+        guard !isAsking,
+              !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return
+        }
+        isAsking = true
+        askError = nil
+        answer = nil
+
+        Task {
+            do {
+                answer = try await onAsk(photo, question)
+            } catch {
+                askError = error.localizedDescription
+            }
+            isAsking = false
         }
     }
 }
