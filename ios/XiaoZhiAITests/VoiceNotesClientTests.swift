@@ -94,7 +94,10 @@ final class VoiceNotesClientTests: XCTestCase {
         MockURLProtocol.requestHandler = { request in
             XCTAssertEqual(request.httpMethod, "POST")
             XCTAssertEqual(request.url?.path, "/api/notes")
-            XCTAssertNotNil(request.httpBody)
+            XCTAssertEqual(
+                request.value(forHTTPHeaderField: "Content-Type"),
+                "application/json; charset=utf-8"
+            )
             return (
                 HTTPURLResponse(
                     url: try XCTUnwrap(request.url),
