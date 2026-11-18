@@ -1,0 +1,13 @@
+{
+  "type": "hello",
+  "version": 1,
+  "transport": "websocket",
+  "session_id": "0d051203-c9be-4ae0-8911-dffdc540f06c",
+  "audio_params": {
+    "format": "opus",
+    "sample_rate": 16000,
+    "channels": 1,
+    "frame_duration": 60
+  }
+}
+

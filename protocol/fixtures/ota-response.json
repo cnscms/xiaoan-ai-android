@@ -1,0 +1,19 @@
+{
+  "server_time": {
+    "timestamp": 1795000000,
+    "timeZone": "Asia/Shanghai",
+    "timezone_offset": 480
+  },
+  "activation": {
+    "code": "123456",
+    "message": "请在小安控制台绑定设备",
+    "challenge": "fixture-challenge"
+  },
+  "firmware": {
+    "version": "2.0.2",
+    "url": ""
+  },
+  "websocket": {
+    "url": "ws://sql.ms48.com:8001/xiaozhi/v1/"
+  }
+}

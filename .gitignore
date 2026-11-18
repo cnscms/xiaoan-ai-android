@@ -20,3 +20,13 @@ local.properties
 /prototype/
 /ota请求.txt
 /.kotlin/
+
+# iOS / Xcode
+ios/*.xcodeproj
+ios/*.xcworkspace
+ios/DerivedData/
+ios/build/
+ios/Vendor/Opus.xcframework/
+ios/Vendor/OpusHeaders/
+*.xcuserstate
+xcuserdata/

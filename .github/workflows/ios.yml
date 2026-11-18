@@ -1,0 +1,54 @@
+name: iOS
+
+on:
+  push:
+    paths:
+      - "ios/**"
+      - "protocol/**"
+      - ".github/workflows/ios.yml"
+  pull_request:
+    paths:
+      - "ios/**"
+      - "protocol/**"
+      - ".github/workflows/ios.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Build libopus XCFramework
+        working-directory: ios
+        run: bash scripts/build-opus-ios.sh
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Build and test on iOS Simulator
+        working-directory: ios
+        run: |
+          xcodebuild \
+            -project XiaoZhiAI.xcodeproj \
+            -scheme XiaoZhiAI \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,name=iPhone 16" \
+            CODE_SIGNING_ALLOWED=NO \
+            test
+
+      - name: Build LAN app
+        working-directory: ios
+        run: |
+          xcodebuild \
+            -project XiaoZhiAI.xcodeproj \
+            -scheme XiaoZhiAILAN \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination "generic/platform=iOS Simulator" \
+            CODE_SIGNING_ALLOWED=NO \
+            build

@@ -1,0 +1,99 @@
+name: XiaoZhiAI
+
+options:
+  bundleIdPrefix: com.xiaozhi.ai
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+
+targets:
+  XiaoZhiAI:
+    type: application
+    platform: iOS
+    sources:
+      - path: XiaoZhiAI
+        excludes:
+          - Resources/Info.plist
+          - Resources/Info-LAN.plist
+    dependencies:
+      - framework: Vendor/Opus.xcframework
+        embed: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.xiaozhi.ai.ios
+        PRODUCT_NAME: XiaoZhiAI
+        APP_DISPLAY_NAME: "小安"
+        INFOPLIST_FILE: XiaoZhiAI/Resources/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        HEADER_SEARCH_PATHS:
+          - "$(inherited)"
+          - "$(SRCROOT)/Vendor/OpusHeaders"
+        SWIFT_OBJC_BRIDGING_HEADER: "$(SRCROOT)/XiaoZhiAI/Core/Audio/XiaoZhiOpusBridge.h"
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) XIAOZHI_DOMAIN"
+  XiaoZhiAILAN:
+    type: application
+    platform: iOS
+    sources:
+      - path: XiaoZhiAI
+        excludes:
+          - Resources/Info.plist
+          - Resources/Info-LAN.plist
+    dependencies:
+      - framework: Vendor/Opus.xcframework
+        embed: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.xiaozhi.ai.ios.lan
+        PRODUCT_NAME: XiaoZhiAILAN
+        APP_DISPLAY_NAME: "小安内网"
+        INFOPLIST_FILE: XiaoZhiAI/Resources/Info-LAN.plist
+        GENERATE_INFOPLIST_FILE: NO
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        HEADER_SEARCH_PATHS:
+          - "$(inherited)"
+          - "$(SRCROOT)/Vendor/OpusHeaders"
+        SWIFT_OBJC_BRIDGING_HEADER: "$(SRCROOT)/XiaoZhiAI/Core/Audio/XiaoZhiOpusBridge.h"
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) XIAOZHI_LAN"
+  XiaoZhiAITests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: XiaoZhiAITests
+      - path: ../protocol/fixtures
+        buildPhase: resources
+    dependencies:
+      - target: XiaoZhiAI
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.xiaozhi.ai.ios.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  XiaoZhiAI:
+    build:
+      targets:
+        XiaoZhiAI: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - XiaoZhiAITests
+
+  XiaoZhiAILAN:
+    build:
+      targets:
+        XiaoZhiAILAN: all
+    run:
+      config: Debug
+
