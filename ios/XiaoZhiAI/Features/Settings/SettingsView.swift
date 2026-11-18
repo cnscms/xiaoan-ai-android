@@ -3,6 +3,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var configStore: AppConfigStore
+    @ObservedObject var voiceNotes: VoiceNotesStore
     let onSave: (AppConfig) -> Void
     let onConnect: (AppConfig) -> Void
     let onAbort: () -> Void
@@ -18,11 +19,13 @@ struct SettingsView: View {
 
     init(
         configStore: AppConfigStore,
+        voiceNotes: VoiceNotesStore,
         onSave: @escaping (AppConfig) -> Void,
         onConnect: @escaping (AppConfig) -> Void = { _ in },
         onAbort: @escaping () -> Void = {}
     ) {
         self.configStore = configStore
+        self.voiceNotes = voiceNotes
         self.onSave = onSave
         self.onConnect = onConnect
         self.onAbort = onAbort
@@ -46,16 +49,34 @@ struct SettingsView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .keyboardType(.URL)
-                    TextField("VoiceNote 服务地址", text: $draft.voiceNotesURLString)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .keyboardType(.URL)
                     SecureField("Token（服务端关闭鉴权时留空）", text: $draft.token)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    SecureField("VoiceNote Token", text: $draft.voiceNotesToken)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
+                }
+
+                Section("语音记事本") {
+                    NavigationLink {
+                        VoiceNoteServerSettingsView(store: voiceNotes)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("VoiceNote 服务")
+                                .foregroundStyle(.primary)
+                            Text(draft.voiceNotesURLString)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text(
+                                draft.voiceNotesToken.isEmpty
+                                    ? "Token 未配置"
+                                    : "Token 已配置"
+                            )
+                            .font(.caption2)
+                            .foregroundStyle(
+                                draft.voiceNotesToken.isEmpty
+                                    ? Color.orange
+                                    : Color.green
+                            )
+                        }
+                    }
                 }
 
                 Section("设备身份") {
@@ -153,13 +174,12 @@ struct SettingsView: View {
                         draft.otaURLString = AppConfig.defaultOTAURL
                         draft.websocketURLString = AppConfig.defaultWebSocketURL
                         draft.visionURLString = AppConfig.defaultVisionURL
-                        draft.voiceNotesURLString = AppConfig.defaultVoiceNotesURL
                     }
                 } footer: {
                     Text(
                         ServerEnvironment.current == .lan
-                            ? "内网版默认使用 192.168.0.20:8002 / 8001 / 8003 / 19090。"
-                            : "域名版默认使用 sql.ms48.com:8002 / 8001 / 8003 / 19090。生产环境建议改用 HTTPS/WSS。"
+                            ? "内网版默认使用 192.168.0.20:8002 / 8001 / 8003。"
+                            : "域名版默认使用 sql.ms48.com:8002 / 8001 / 8003。生产环境建议改用 HTTPS/WSS。"
                     )
                 }
 
@@ -191,6 +211,10 @@ struct SettingsView: View {
                 if bindingState == "bound" {
                     bindingMessage = "设备已绑定"
                 }
+            }
+            .onChange(of: configStore.config) { config in
+                draft.voiceNotesURLString = config.voiceNotesURLString
+                draft.voiceNotesToken = config.voiceNotesToken
             }
         }
     }

@@ -14,13 +14,13 @@ enum VoiceNoteCreateMode: String, Identifiable {
 
 struct VoiceNotesView: View {
     @ObservedObject var store: VoiceNotesStore
-    let onOpenSettings: () -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var selectedSection = 0
     @State private var searchText = ""
     @State private var createMode: VoiceNoteCreateMode?
     @State private var operationError: String?
+    @State private var showServerSettings = false
 
     private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -66,9 +66,22 @@ struct VoiceNotesView: View {
                     .disabled(!store.hasToken || store.isMutating)
                     .accessibilityLabel("新建记事或提醒")
                 }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showServerSettings = true
+                    } label: {
+                        Image(systemName: "server.rack")
+                    }
+                    .accessibilityLabel("配置 VoiceNote 服务器")
+                }
             }
             .sheet(item: $createMode) { mode in
                 VoiceNoteEditorView(store: store, mode: mode)
+            }
+            .sheet(isPresented: $showServerSettings) {
+                NavigationStack {
+                    VoiceNoteServerSettingsView(store: store)
+                }
             }
             .task {
                 await store.refresh()
@@ -116,10 +129,9 @@ struct VoiceNotesView: View {
                 .lineSpacing(4)
 
             Button {
-                dismiss()
-                onOpenSettings()
+                showServerSettings = true
             } label: {
-                Label("打开设置", systemImage: "gearshape.fill")
+                Label("配置 VoiceNote 服务", systemImage: "server.rack")
                     .font(.headline)
                     .foregroundStyle(.white)
                     .padding(.horizontal, 24)

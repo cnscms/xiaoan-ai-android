@@ -11,6 +11,10 @@ final class VoiceNotesStore: ObservableObject {
 
     let configStore: AppConfigStore
     private let client: VoiceNotesClient
+    private var configCancellable: AnyCancellable?
+    private var lastConfiguration: AppConfig
+    private var configGeneration = 0
+    private var activeGeneration: Int?
 
     init(
         configStore: AppConfigStore,
@@ -18,6 +22,14 @@ final class VoiceNotesStore: ObservableObject {
     ) {
         self.configStore = configStore
         self.client = client
+        self.lastConfiguration = configStore.config
+        configCancellable = configStore.$config
+            .dropFirst()
+            .sink { [weak self] config in
+                Task { @MainActor [weak self] in
+                    self?.handleConfigurationChange(config)
+                }
+            }
     }
 
     var hasToken: Bool {
@@ -25,28 +37,40 @@ final class VoiceNotesStore: ObservableObject {
     }
 
     func refresh() async {
-        guard !isLoading else {
-            return
-        }
         guard hasToken else {
             notes.removeAll()
             reminders.removeAll()
             errorMessage = nil
             return
         }
+        if isLoading && activeGeneration == configGeneration {
+            return
+        }
 
+        let generation = configGeneration
+        activeGeneration = generation
         isLoading = true
         errorMessage = nil
-        defer { isLoading = false }
 
         do {
             let config = configStore.config
             async let fetchedNotes = client.fetchNotes(config: config)
             async let fetchedReminders = client.fetchReminders(config: config)
-            notes = try await fetchedNotes
-            reminders = try await fetchedReminders
+            let resolvedNotes = try await fetchedNotes
+            let resolvedReminders = try await fetchedReminders
+            guard generation == configGeneration else {
+                return
+            }
+            notes = resolvedNotes
+            reminders = resolvedReminders
         } catch {
-            errorMessage = error.localizedDescription
+            if generation == configGeneration {
+                errorMessage = error.localizedDescription
+            }
+        }
+        if activeGeneration == generation {
+            activeGeneration = nil
+            isLoading = false
         }
     }
 
@@ -122,5 +146,39 @@ final class VoiceNotesStore: ObservableObject {
 
     func clearError() {
         errorMessage = nil
+    }
+
+    func updateConfiguration(_ configuration: AppConfig) {
+        var value = configuration
+        value.normalize()
+        configStore.save(value)
+    }
+
+    func testConnection(_ configuration: AppConfig) async throws {
+        var value = configuration
+        value.normalize()
+        _ = try await client.fetchNotes(config: value, limit: 1)
+    }
+
+    private func handleConfigurationChange(_ configuration: AppConfig) {
+        let endpointChanged =
+            configuration.voiceNotesURLString
+                != lastConfiguration.voiceNotesURLString
+            || configuration.voiceNotesToken
+                != lastConfiguration.voiceNotesToken
+        lastConfiguration = configuration
+        guard endpointChanged else {
+            return
+        }
+
+        configGeneration += 1
+        activeGeneration = nil
+        isLoading = false
+        notes.removeAll()
+        reminders.removeAll()
+        errorMessage = nil
+        Task {
+            await refresh()
+        }
     }
 }

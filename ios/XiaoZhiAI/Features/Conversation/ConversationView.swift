@@ -67,6 +67,7 @@ struct ConversationView: View {
         .sheet(isPresented: $showSettings) {
             SettingsView(
                 configStore: store.configStore,
+                voiceNotes: voiceNotes,
                 onSave: { config in
                     store.updateConfig(config)
                     refreshDashboard()
@@ -92,15 +93,7 @@ struct ConversationView: View {
             )
         }
         .sheet(isPresented: $showVoiceNotes) {
-            VoiceNotesView(
-                store: voiceNotes,
-                onOpenSettings: {
-                    showVoiceNotes = false
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        showSettings = true
-                    }
-                }
-            )
+            VoiceNotesView(store: voiceNotes)
         }
         .fullScreenCover(
             item: Binding(
