@@ -55,6 +55,17 @@ struct TodayItem: Codable, Equatable, Identifiable {
         status = try container.decodeIfPresent(String.self, forKey: .status) ?? "saved"
     }
 
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(type, forKey: .type)
+        try container.encode(title, forKey: .title)
+        try container.encode(content, forKey: .content)
+        try container.encode(createdAtMs, forKey: .createdAtMs)
+        try container.encode(atMs, forKey: .atMs)
+        try container.encode(status, forKey: .status)
+    }
+
     enum CodingKeys: String, CodingKey {
         case id
         case type
