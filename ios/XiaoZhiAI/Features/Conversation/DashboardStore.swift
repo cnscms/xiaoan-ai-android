@@ -94,7 +94,7 @@ final class DashboardStore: ObservableObject {
     init(
         defaults: UserDefaults = .standard,
         session: URLSession = .shared,
-        privacyVault: PrivacyVaultStore = PrivacyVaultStore()
+        privacyVault: PrivacyVaultStore
     ) {
         self.defaults = defaults
         self.session = session

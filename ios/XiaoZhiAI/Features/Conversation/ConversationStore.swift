@@ -76,7 +76,7 @@ final class ConversationStore: ObservableObject {
         otaClient: OtaClient = OtaClient(),
         socket: XiaozhiWebSocketClient = XiaozhiWebSocketClient(),
         defaults: UserDefaults = .standard,
-        privacyVault: PrivacyVaultStore = PrivacyVaultStore()
+        privacyVault: PrivacyVaultStore
     ) {
         self.configStore = configStore
         self.otaClient = otaClient
