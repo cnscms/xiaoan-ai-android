@@ -4,6 +4,7 @@ import SwiftUI
 struct XiaoZhiAIApp: App {
     @StateObject private var configStore: AppConfigStore
     @StateObject private var conversationStore: ConversationStore
+    @StateObject private var dashboardStore: DashboardStore
 
     init() {
         let configStore = AppConfigStore()
@@ -11,11 +12,15 @@ struct XiaoZhiAIApp: App {
         _conversationStore = StateObject(
             wrappedValue: ConversationStore(configStore: configStore)
         )
+        _dashboardStore = StateObject(wrappedValue: DashboardStore())
     }
 
     var body: some Scene {
         WindowGroup {
-            ConversationView(store: conversationStore)
+            ConversationView(
+                store: conversationStore,
+                dashboard: dashboardStore
+            )
                 .preferredColorScheme(.light)
         }
     }

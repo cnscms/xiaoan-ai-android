@@ -63,6 +63,7 @@ struct OtaResponse: Decodable, Equatable, Sendable {
 
     struct WebSocket: Decodable, Equatable, Sendable {
         let url: String
+        let token: String?
     }
 }
 

@@ -56,6 +56,9 @@ struct AppConfig: Codable, Equatable {
     var clientID: String
     var deviceID: String
     var mcpEnabled: Bool
+    var weatherCity: String
+    var weatherLatitude: Double
+    var weatherLongitude: Double
 
     init(
         displayName: String = ServerEnvironment.current.displayName,
@@ -64,7 +67,10 @@ struct AppConfig: Codable, Equatable {
         token: String = "",
         clientID: String,
         deviceID: String,
-        mcpEnabled: Bool = false
+        mcpEnabled: Bool = false,
+        weatherCity: String = "眉山",
+        weatherLatitude: Double = 30.05,
+        weatherLongitude: Double = 103.83
     ) {
         self.displayName = displayName
         self.otaURLString = otaURLString
@@ -73,6 +79,47 @@ struct AppConfig: Codable, Equatable {
         self.clientID = clientID
         self.deviceID = deviceID
         self.mcpEnabled = mcpEnabled
+        self.weatherCity = weatherCity
+        self.weatherLatitude = weatherLatitude
+        self.weatherLongitude = weatherLongitude
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
+            ?? ServerEnvironment.current.displayName
+        otaURLString = try container.decodeIfPresent(String.self, forKey: .otaURLString)
+            ?? AppConfig.defaultOTAURL
+        websocketURLString = try container.decodeIfPresent(
+            String.self,
+            forKey: .websocketURLString
+        ) ?? AppConfig.defaultWebSocketURL
+        token = try container.decodeIfPresent(String.self, forKey: .token) ?? ""
+        clientID = try container.decodeIfPresent(String.self, forKey: .clientID) ?? ""
+        deviceID = try container.decodeIfPresent(String.self, forKey: .deviceID) ?? ""
+        mcpEnabled = try container.decodeIfPresent(Bool.self, forKey: .mcpEnabled) ?? false
+        weatherCity = try container.decodeIfPresent(String.self, forKey: .weatherCity) ?? "眉山"
+        weatherLatitude = try container.decodeIfPresent(
+            Double.self,
+            forKey: .weatherLatitude
+        ) ?? 30.05
+        weatherLongitude = try container.decodeIfPresent(
+            Double.self,
+            forKey: .weatherLongitude
+        ) ?? 103.83
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case displayName
+        case otaURLString
+        case websocketURLString
+        case token
+        case clientID
+        case deviceID
+        case mcpEnabled
+        case weatherCity
+        case weatherLatitude
+        case weatherLongitude
     }
 
     var otaURL: URL? {
@@ -96,6 +143,10 @@ struct AppConfig: Codable, Equatable {
         token = token.trimmingCharacters(in: .whitespacesAndNewlines)
         clientID = clientID.trimmingCharacters(in: .whitespacesAndNewlines)
         deviceID = deviceID.trimmingCharacters(in: .whitespacesAndNewlines)
+        weatherCity = weatherCity.trimmingCharacters(in: .whitespacesAndNewlines)
+        if weatherCity.isEmpty {
+            weatherCity = "眉山"
+        }
     }
 
     private static func networkURL(from value: String, schemes: Set<String>) -> URL? {

@@ -117,6 +117,10 @@ struct ServerEvent: Decodable, Equatable, Sendable {
     let emotion: String?
     let source: String?
     let audioParameters: AudioParameters?
+    let action: String?
+    let url: String?
+    let name: String?
+    let startDelayMs: Int?
 
     var isHello: Bool {
         type == "hello" && transport == "websocket"
@@ -132,6 +136,10 @@ struct ServerEvent: Decodable, Equatable, Sendable {
         case emotion
         case source
         case audioParameters = "audio_params"
+        case action
+        case url
+        case name
+        case startDelayMs = "start_delay_ms"
     }
 }
 

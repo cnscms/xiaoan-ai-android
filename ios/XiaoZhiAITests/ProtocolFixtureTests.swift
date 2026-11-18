@@ -64,6 +64,7 @@ final class ProtocolFixtureTests: XCTestCase {
             response.websocket.url,
             "ws://sql.ms48.com:8001/xiaozhi/v1/"
         )
+        XCTAssertNil(response.websocket.token)
     }
 
     func testDefaultConfigurationUsesOurServer() {
@@ -85,6 +86,79 @@ final class ProtocolFixtureTests: XCTestCase {
             "ws://192.168.0.20:8001/xiaozhi/v1/"
         )
         XCTAssertEqual(ServerEnvironment.lan.displayName, "小安内网")
+    }
+
+    func testLegacyConfigurationGetsWeatherDefaults() throws {
+        let data = Data(
+            """
+            {
+              "displayName": "小安",
+              "otaURLString": "http://sql.ms48.com:8002/xiaozhi/ota/",
+              "websocketURLString": "ws://sql.ms48.com:8001/xiaozhi/v1/",
+              "clientID": "client",
+              "deviceID": "02:00:00:00:00:01",
+              "mcpEnabled": false
+            }
+            """.utf8
+        )
+
+        let config = try JSONDecoder().decode(AppConfig.self, from: data)
+        XCTAssertEqual(config.weatherCity, "眉山")
+        XCTAssertEqual(config.weatherLatitude, 30.05, accuracy: 0.001)
+        XCTAssertEqual(config.weatherLongitude, 103.83, accuracy: 0.001)
+    }
+
+    func testChatHistoryRoundTrip() throws {
+        let message = ChatMessage(
+            role: .assistant,
+            content: "你好，我是小安",
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+
+        let data = try JSONEncoder().encode(message)
+        let decoded = try JSONDecoder().decode(ChatMessage.self, from: data)
+
+        XCTAssertEqual(decoded, message)
+    }
+
+    func testTodayItemAcceptsNumericIdentifierAndTextFallback() throws {
+        let data = Data(
+            """
+            {
+              "id": 42,
+              "type": "reminder",
+              "text": "下午三点开会",
+              "createdAtMs": 1800000000000,
+              "atMs": 1800003600000
+            }
+            """.utf8
+        )
+
+        let item = try JSONDecoder().decode(TodayItem.self, from: data)
+        XCTAssertEqual(item.id, "42")
+        XCTAssertEqual(item.title, "下午三点开会")
+        XCTAssertEqual(item.content, "下午三点开会")
+        XCTAssertTrue(item.isReminder)
+    }
+
+    func testVideoCommandDecodes() throws {
+        let data = Data(
+            """
+            {
+              "type": "video",
+              "action": "play",
+              "name": "演示视频",
+              "url": "https://example.com/demo.mp4",
+              "start_delay_ms": 1200
+            }
+            """.utf8
+        )
+
+        let event = try XiaozhiJSON.decodeServerEvent(data)
+        XCTAssertEqual(event.type, "video")
+        XCTAssertEqual(event.action, "play")
+        XCTAssertEqual(event.name, "演示视频")
+        XCTAssertEqual(event.startDelayMs, 1200)
     }
 
     private func fixtureData(_ name: String) throws -> Data {

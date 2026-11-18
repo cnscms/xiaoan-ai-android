@@ -12,16 +12,41 @@ enum ConversationState: Equatable {
     case failed(String)
 }
 
-struct ChatMessage: Identifiable, Equatable {
-    enum Role: Equatable {
+struct ChatMessage: Identifiable, Codable, Equatable {
+    enum Role: String, Codable, Equatable {
         case user
         case assistant
         case system
     }
 
-    let id = UUID()
+    let id: UUID
     let role: Role
     var content: String
+    let createdAt: Date
+
+    init(
+        id: UUID = UUID(),
+        role: Role,
+        content: String,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.role = role
+        self.content = content
+        self.createdAt = createdAt
+    }
+}
+
+struct VideoRequest: Identifiable, Equatable {
+    let id: UUID
+    let name: String
+    let url: String
+
+    init(id: UUID = UUID(), name: String, url: String) {
+        self.id = id
+        self.name = name
+        self.url = url
+    }
 }
 
 @MainActor
@@ -31,24 +56,40 @@ final class ConversationStore: ObservableObject {
     @Published private(set) var sessionID: String?
     @Published var activationCode: String?
     @Published var errorMessage: String?
+    @Published private(set) var videoRequest: VideoRequest?
 
     let configStore: AppConfigStore
 
     private let otaClient: OtaClient
     private let socket: XiaozhiWebSocketClient
     private let audioManager = XiaoZhiAudioManager()
+    private let defaults: UserDefaults
+    private let historyStorageKey = "xiaoan.chat.history.v1"
+    private let historyLimit = 100
     private var eventTask: Task<Void, Never>?
     private var connectionTask: Task<Void, Never>?
+    private var videoTask: Task<Void, Never>?
 
     init(
         configStore: AppConfigStore,
         otaClient: OtaClient = OtaClient(),
-        socket: XiaozhiWebSocketClient = XiaozhiWebSocketClient()
+        socket: XiaozhiWebSocketClient = XiaozhiWebSocketClient(),
+        defaults: UserDefaults = .standard
     ) {
         self.configStore = configStore
         self.otaClient = otaClient
         self.socket = socket
+        self.defaults = defaults
+        messages = Self.loadHistory(
+            from: defaults,
+            key: "xiaoan.chat.history.v1",
+            limit: 100
+        )
         ensureEventTask()
+    }
+
+    var isConnected: Bool {
+        sessionID != nil
     }
 
     func connect() {
@@ -69,6 +110,7 @@ final class ConversationStore: ObservableObject {
     func disconnect() {
         connectionTask?.cancel()
         connectionTask = nil
+        dismissVideo()
         audioManager.stopCapture()
         audioManager.stopPlayback()
         Task {
@@ -91,7 +133,6 @@ final class ConversationStore: ObservableObject {
     func updateConfig(_ config: AppConfig) {
         disconnect()
         configStore.save(config)
-        messages.removeAll()
     }
 
     func sendText(_ text: String) async {
@@ -105,7 +146,7 @@ final class ConversationStore: ObservableObject {
         }
 
         do {
-            messages.append(ChatMessage(role: .user, content: value))
+            appendMessage(ChatMessage(role: .user, content: value))
             state = .processing
             try await socket.send(
                 ListenCommand.detect(sessionID: sessionID, text: value)
@@ -196,6 +237,35 @@ final class ConversationStore: ObservableObject {
         }
     }
 
+    func abortSpeaking() {
+        audioManager.stopCapture()
+        audioManager.stopPlayback()
+        state = .connected
+        guard !sessionID.isNilOrEmpty else {
+            return
+        }
+        Task {
+            do {
+                try await socket.send(
+                    AbortCommand(sessionID: sessionID, reason: "user_interrupt")
+                )
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    func dismissVideo() {
+        videoTask?.cancel()
+        videoTask = nil
+        videoRequest = nil
+    }
+
+    func clearHistory() {
+        messages.removeAll()
+        defaults.removeObject(forKey: historyStorageKey)
+    }
+
     private func connectFlow() async {
         let config = configStore.config
         var resolvedConfig = config
@@ -203,10 +273,17 @@ final class ConversationStore: ObservableObject {
         if config.otaURL != nil {
             do {
                 let ota = try await otaClient.fetch(config: config)
-                resolvedConfig.websocketURLString = ota.websocket.url
+                let websocketURL = ota.websocket.url
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if !websocketURL.isEmpty {
+                    resolvedConfig.websocketURLString = websocketURL
+                }
+                if let token = ota.websocket.token, !token.isEmpty {
+                    resolvedConfig.token = token
+                }
                 configStore.save(resolvedConfig)
 
-                if let activation = ota.activation {
+                if let activation = ota.activation, !activation.code.isEmpty {
                     activationCode = activation.code
                     state = .idle
                     return
@@ -255,6 +332,7 @@ final class ConversationStore: ObservableObject {
         case let .state(connection):
             switch connection {
             case .disconnected:
+                dismissVideo()
                 audioManager.stopCapture()
                 audioManager.stopPlayback()
                 sessionID = nil
@@ -269,6 +347,7 @@ final class ConversationStore: ObservableObject {
                 state = .connected
                 errorMessage = nil
             case let .failed(message):
+                dismissVideo()
                 audioManager.stopCapture()
                 audioManager.stopPlayback()
                 state = .failed(message)
@@ -279,6 +358,9 @@ final class ConversationStore: ObservableObject {
             handleServerEvent(event)
 
         case let .binary(data):
+            if videoRequest != nil || videoTask != nil {
+                return
+            }
             audioManager.play(data)
 
         case let .protocolError(message):
@@ -296,7 +378,7 @@ final class ConversationStore: ObservableObject {
 
         case "stt":
             if let text = event.text, !text.isEmpty {
-                messages.append(ChatMessage(role: .user, content: text))
+                appendMessage(ChatMessage(role: .user, content: text))
                 state = .processing
             }
 
@@ -327,8 +409,50 @@ final class ConversationStore: ObservableObject {
             errorMessage = event.text ?? "服务端返回错误"
             state = .connected
 
+        case "video":
+            handleVideoEvent(event)
+
         default:
             break
+        }
+    }
+
+    private func handleVideoEvent(_ event: ServerEvent) {
+        if event.action == "stop" {
+            dismissVideo()
+            return
+        }
+        let value = event.url?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard let url = URL(string: value),
+              let scheme = url.scheme?.lowercased(),
+              ["http", "https"].contains(scheme),
+              url.host != nil else {
+            errorMessage = "服务端下发的视频地址无效"
+            return
+        }
+
+        audioManager.stopCapture()
+        audioManager.stopPlayback()
+        let trimmedName = event.name?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let request = VideoRequest(
+            name: trimmedName.isEmpty ? "视频" : trimmedName,
+            url: value
+        )
+        let delay = min(max(event.startDelayMs ?? 900, 0), 5_000)
+
+        videoTask?.cancel()
+        videoTask = Task { [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: UInt64(delay) * 1_000_000)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled, let self else {
+                return
+            }
+            self.videoRequest = request
+            self.videoTask = nil
         }
     }
 
@@ -336,8 +460,9 @@ final class ConversationStore: ObservableObject {
         if messages.last?.role == .assistant {
             messages[messages.count - 1].content = text
         } else {
-            messages.append(ChatMessage(role: .assistant, content: text))
+            appendMessage(ChatMessage(role: .assistant, content: text))
         }
+        persistHistory()
     }
 
     private func handleAudioError(_ error: Error) {
@@ -345,6 +470,34 @@ final class ConversationStore: ObservableObject {
         audioManager.stopPlayback()
         state = .failed(error.localizedDescription)
         errorMessage = error.localizedDescription
+    }
+
+    private func appendMessage(_ message: ChatMessage) {
+        messages.append(message)
+        if messages.count > historyLimit {
+            messages.removeFirst(messages.count - historyLimit)
+        }
+        persistHistory()
+    }
+
+    private func persistHistory() {
+        let recent = Array(messages.suffix(historyLimit))
+        guard let data = try? JSONEncoder().encode(recent) else {
+            return
+        }
+        defaults.set(data, forKey: historyStorageKey)
+    }
+
+    private static func loadHistory(
+        from defaults: UserDefaults,
+        key: String,
+        limit: Int
+    ) -> [ChatMessage] {
+        guard let data = defaults.data(forKey: key),
+              let decoded = try? JSONDecoder().decode([ChatMessage].self, from: data) else {
+            return []
+        }
+        return Array(decoded.suffix(limit))
     }
 }
 
