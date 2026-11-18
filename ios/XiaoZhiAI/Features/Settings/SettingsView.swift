@@ -9,6 +9,7 @@ struct SettingsView: View {
     let onAbort: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     @AppStorage("xiaoan.binding.state") private var bindingState = ""
     @AppStorage("xiaoan.binding.code") private var savedBindingCode = ""
     @State private var draft: AppConfig
@@ -77,6 +78,33 @@ struct SettingsView: View {
                             )
                         }
                     }
+                }
+
+                Section {
+                    TextField("管理平台地址", text: $draft.managementURLString)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.URL)
+
+                    Button {
+                        if let url = managementDraftURL {
+                            openURL(url)
+                        }
+                    } label: {
+                        Label(
+                            "打开后端管理平台",
+                            systemImage: "safari.fill"
+                        )
+                    }
+                    .disabled(managementDraftURL == nil)
+                } header: {
+                    Text("后端管理平台")
+                } footer: {
+                    Text(
+                        ServerEnvironment.current == .lan
+                            ? "内网版默认：http://192.168.0.20:8002"
+                            : "域名版默认：https://ai.ms48.com"
+                    )
                 }
 
                 Section("设备身份") {
@@ -174,6 +202,7 @@ struct SettingsView: View {
                         draft.otaURLString = AppConfig.defaultOTAURL
                         draft.websocketURLString = AppConfig.defaultWebSocketURL
                         draft.visionURLString = AppConfig.defaultVisionURL
+                        draft.managementURLString = AppConfig.defaultManagementURL
                     }
                 } footer: {
                     Text(
@@ -223,6 +252,10 @@ struct SettingsView: View {
         var value = draft
         value.normalize()
         return value
+    }
+
+    private var managementDraftURL: URL? {
+        normalizedDraft.managementURL
     }
 
     private var displayBindingCode: String {

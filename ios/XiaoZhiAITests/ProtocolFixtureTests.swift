@@ -79,11 +79,16 @@ final class ProtocolFixtureTests: XCTestCase {
             config.voiceNotesURLString,
             "http://sql.ms48.com:19090"
         )
+        XCTAssertEqual(
+            config.managementURLString,
+            "https://ai.ms48.com"
+        )
         XCTAssertTrue(config.voiceNotesToken.isEmpty)
         XCTAssertNotNil(config.otaURL)
         XCTAssertNotNil(config.websocketURL)
         XCTAssertNotNil(config.visionURL)
         XCTAssertNotNil(config.voiceNotesURL)
+        XCTAssertNotNil(config.managementURL)
         XCTAssertTrue(config.isComplete)
     }
 
@@ -103,6 +108,10 @@ final class ProtocolFixtureTests: XCTestCase {
         XCTAssertEqual(
             ServerEnvironment.lan.defaultVoiceNotesURL,
             "http://192.168.0.20:19090"
+        )
+        XCTAssertEqual(
+            ServerEnvironment.lan.defaultManagementURL,
+            "http://192.168.0.20:8002"
         )
         XCTAssertEqual(ServerEnvironment.lan.displayName, "小安内网")
     }
@@ -132,6 +141,10 @@ final class ProtocolFixtureTests: XCTestCase {
         XCTAssertEqual(
             config.voiceNotesURLString,
             "http://sql.ms48.com:19090"
+        )
+        XCTAssertEqual(
+            config.managementURLString,
+            "https://ai.ms48.com"
         )
     }
 

@@ -43,6 +43,9 @@ final class AppConfigStore: ObservableObject {
         if loaded.voiceNotesURLString.isEmpty {
             loaded.voiceNotesURLString = AppConfig.defaultVoiceNotesURL
         }
+        if loaded.managementURLString.isEmpty {
+            loaded.managementURLString = AppConfig.defaultManagementURL
+        }
         loaded.clientID = identity.clientID
         loaded.deviceID = identity.deviceID
         loaded.normalize()

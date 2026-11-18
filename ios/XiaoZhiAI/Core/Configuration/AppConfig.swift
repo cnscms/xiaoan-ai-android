@@ -48,6 +48,15 @@ enum ServerEnvironment: String {
         }
     }
 
+    var defaultManagementURL: String {
+        switch self {
+        case .domain:
+            return "https://ai.ms48.com"
+        case .lan:
+            return "http://192.168.0.20:8002"
+        }
+    }
+
     var displayName: String {
         switch self {
         case .domain:
@@ -75,11 +84,16 @@ struct AppConfig: Codable, Equatable {
         ServerEnvironment.current.defaultVoiceNotesURL
     }
 
+    static var defaultManagementURL: String {
+        ServerEnvironment.current.defaultManagementURL
+    }
+
     var displayName: String
     var otaURLString: String
     var websocketURLString: String
     var visionURLString: String
     var voiceNotesURLString: String
+    var managementURLString: String
     var token: String
     var voiceNotesToken: String
     var clientID: String
@@ -95,6 +109,7 @@ struct AppConfig: Codable, Equatable {
         websocketURLString: String = AppConfig.defaultWebSocketURL,
         visionURLString: String = AppConfig.defaultVisionURL,
         voiceNotesURLString: String = AppConfig.defaultVoiceNotesURL,
+        managementURLString: String = AppConfig.defaultManagementURL,
         token: String = "",
         voiceNotesToken: String = "",
         clientID: String,
@@ -109,6 +124,7 @@ struct AppConfig: Codable, Equatable {
         self.websocketURLString = websocketURLString
         self.visionURLString = visionURLString
         self.voiceNotesURLString = voiceNotesURLString
+        self.managementURLString = managementURLString
         self.token = token
         self.voiceNotesToken = voiceNotesToken
         self.clientID = clientID
@@ -137,6 +153,10 @@ struct AppConfig: Codable, Equatable {
             String.self,
             forKey: .voiceNotesURLString
         ) ?? AppConfig.defaultVoiceNotesURL
+        managementURLString = try container.decodeIfPresent(
+            String.self,
+            forKey: .managementURLString
+        ) ?? AppConfig.defaultManagementURL
         token = try container.decodeIfPresent(String.self, forKey: .token) ?? ""
         voiceNotesToken = try container.decodeIfPresent(
             String.self,
@@ -162,6 +182,7 @@ struct AppConfig: Codable, Equatable {
         case websocketURLString
         case visionURLString
         case voiceNotesURLString
+        case managementURLString
         case token
         case voiceNotesToken
         case clientID
@@ -188,6 +209,10 @@ struct AppConfig: Codable, Equatable {
         Self.networkURL(from: voiceNotesURLString, schemes: ["http", "https"])
     }
 
+    var managementURL: URL? {
+        Self.networkURL(from: managementURLString, schemes: ["http", "https"])
+    }
+
     var isComplete: Bool {
         !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && (otaURL != nil || websocketURL != nil)
@@ -204,6 +229,12 @@ struct AppConfig: Codable, Equatable {
         )
         while voiceNotesURLString.hasSuffix("/") {
             voiceNotesURLString.removeLast()
+        }
+        managementURLString = managementURLString.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        while managementURLString.hasSuffix("/") {
+            managementURLString.removeLast()
         }
         token = token.trimmingCharacters(in: .whitespacesAndNewlines)
         voiceNotesToken = voiceNotesToken.trimmingCharacters(
