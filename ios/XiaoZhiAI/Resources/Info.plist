@@ -28,6 +28,8 @@
     <string>用于连接您配置的小安本地服务。</string>
     <key>NSBluetoothAlwaysUsageDescription</key>
     <string>用于通过蓝牙耳机进行语音对话。</string>
+    <key>NSFaceIDUsageDescription</key>
+    <string>用于解锁保存在本机的聊天历史和待办隐私保险箱。</string>
     <key>NSAppTransportSecurity</key>
     <dict>
         <key>NSExceptionDomains</key>

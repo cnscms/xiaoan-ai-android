@@ -59,6 +59,7 @@ final class ConversationStore: ObservableObject {
     @Published private(set) var videoRequest: VideoRequest?
 
     let configStore: AppConfigStore
+    let privacyVault: PrivacyVaultStore
 
     private let otaClient: OtaClient
     private let socket: XiaozhiWebSocketClient
@@ -74,16 +75,18 @@ final class ConversationStore: ObservableObject {
         configStore: AppConfigStore,
         otaClient: OtaClient = OtaClient(),
         socket: XiaozhiWebSocketClient = XiaozhiWebSocketClient(),
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard,
+        privacyVault: PrivacyVaultStore = PrivacyVaultStore()
     ) {
         self.configStore = configStore
         self.otaClient = otaClient
         self.socket = socket
         self.defaults = defaults
-        messages = Self.loadHistory(
-            from: defaults,
+        self.privacyVault = privacyVault
+        Self.migrateLegacyHistory(
+            defaults: defaults,
             key: "xiaoan.chat.history.v1",
-            limit: 100
+            privacyVault: privacyVault
         )
         ensureEventTask()
     }
@@ -264,6 +267,11 @@ final class ConversationStore: ObservableObject {
     func clearHistory() {
         messages.removeAll()
         defaults.removeObject(forKey: historyStorageKey)
+        do {
+            try privacyVault.clearChatHistory()
+        } catch {
+            errorMessage = "清空隐私保险箱失败：\(error.localizedDescription)"
+        }
     }
 
     private func connectFlow() async {
@@ -459,10 +467,12 @@ final class ConversationStore: ObservableObject {
     private func mergeAssistantText(_ text: String) {
         if messages.last?.role == .assistant {
             messages[messages.count - 1].content = text
+            if let message = messages.last {
+                persistEncryptedMessage(message)
+            }
         } else {
             appendMessage(ChatMessage(role: .assistant, content: text))
         }
-        persistHistory()
     }
 
     private func handleAudioError(_ error: Error) {
@@ -477,27 +487,37 @@ final class ConversationStore: ObservableObject {
         if messages.count > historyLimit {
             messages.removeFirst(messages.count - historyLimit)
         }
-        persistHistory()
+        persistEncryptedMessage(message)
     }
 
-    private func persistHistory() {
-        let recent = Array(messages.suffix(historyLimit))
-        guard let data = try? JSONEncoder().encode(recent) else {
+    private func persistEncryptedMessage(_ message: ChatMessage) {
+        do {
+            try privacyVault.upsertChatMessage(message)
+        } catch {
+            errorMessage = "历史消息加密保存失败：\(error.localizedDescription)"
+        }
+    }
+
+    private static func migrateLegacyHistory(
+        defaults: UserDefaults,
+        key: String,
+        privacyVault: PrivacyVaultStore
+    ) {
+        guard let data = defaults.data(forKey: key) else {
             return
         }
-        defaults.set(data, forKey: historyStorageKey)
-    }
-
-    private static func loadHistory(
-        from defaults: UserDefaults,
-        key: String,
-        limit: Int
-    ) -> [ChatMessage] {
-        guard let data = defaults.data(forKey: key),
-              let decoded = try? JSONDecoder().decode([ChatMessage].self, from: data) else {
-            return []
+        guard let decoded = try? JSONDecoder().decode([ChatMessage].self, from: data) else {
+            defaults.removeObject(forKey: key)
+            return
         }
-        return Array(decoded.suffix(limit))
+        do {
+            for message in decoded.suffix(100) {
+                try privacyVault.upsertChatMessage(message)
+            }
+            defaults.removeObject(forKey: key)
+        } catch {
+            // Keep the legacy file so a later launch can retry the migration.
+        }
     }
 }
 

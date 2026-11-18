@@ -8,7 +8,7 @@ struct ConversationView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var input = ""
     @State private var showSettings = false
-    @State private var showHistory = false
+    @State private var showPrivacyVault = false
     @State private var showSubtitles = true
     @State private var todoExpanded = false
     @State private var didAutoConnect = false
@@ -77,8 +77,11 @@ struct ConversationView: View {
                 }
             )
         }
-        .sheet(isPresented: $showHistory) {
-            historySheet
+        .sheet(isPresented: $showPrivacyVault) {
+            PrivacyVaultView(vault: store.privacyVault) {
+                store.clearHistory()
+                dashboard.clearSensitiveCache()
+            }
         }
         .fullScreenCover(
             item: Binding(
@@ -191,10 +194,10 @@ struct ConversationView: View {
             }
 
             headerButton(
-                systemName: "clock.arrow.circlepath",
-                accessibilityLabel: "历史消息"
+                systemName: "lock.shield.fill",
+                accessibilityLabel: "隐私保险箱"
             ) {
-                showHistory = true
+                showPrivacyVault = true
             }
 
             headerButton(
@@ -504,63 +507,6 @@ struct ConversationView: View {
         .background(.white)
         .clipShape(Capsule())
         .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
-    }
-
-    private var historySheet: some View {
-        NavigationStack {
-            Group {
-                if store.messages.isEmpty {
-                    VStack(spacing: 10) {
-                        Image(systemName: "clock")
-                            .font(.largeTitle)
-                            .foregroundStyle(.secondary)
-                        Text("还没有历史消息")
-                            .font(.headline)
-                        Text("和小安聊过的内容会保存在这里")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    List(store.messages) { message in
-                        VStack(alignment: .leading, spacing: 5) {
-                            HStack {
-                                Text(message.role == .assistant ? "小安" : "你")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(
-                                        message.role == .assistant
-                                            ? primary
-                                            : Color.secondary
-                                    )
-                                Spacer()
-                                Text(Self.timeFormatter.string(from: message.createdAt))
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Text(message.content)
-                                .font(.body)
-                                .textSelection(.enabled)
-                        }
-                        .padding(.vertical, 3)
-                    }
-                }
-            }
-            .navigationTitle("历史消息")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("清空", role: .destructive) {
-                        store.clearHistory()
-                    }
-                    .disabled(store.messages.isEmpty)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("关闭") {
-                        showHistory = false
-                    }
-                }
-            }
-        }
     }
 
     private var weatherTitle: String {

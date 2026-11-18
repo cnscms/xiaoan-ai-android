@@ -89,13 +89,16 @@ final class DashboardStore: ObservableObject {
 
     private let defaults: UserDefaults
     private let session: URLSession
+    private let privacyVault: PrivacyVaultStore
 
     init(
         defaults: UserDefaults = .standard,
-        session: URLSession = .shared
+        session: URLSession = .shared,
+        privacyVault: PrivacyVaultStore = PrivacyVaultStore()
     ) {
         self.defaults = defaults
         self.session = session
+        self.privacyVault = privacyVault
     }
 
     func refresh(config: AppConfig) async {
@@ -122,9 +125,7 @@ final class DashboardStore: ObservableObject {
         }
 
         todayItems = resolvedItems
-        if let data = try? JSONEncoder().encode(resolvedItems) {
-            defaults.set(data, forKey: notesCacheKey(config))
-        }
+        try? privacyVault.replaceTodayItems(resolvedItems)
     }
 
     func restoreCache(config: AppConfig) {
@@ -132,10 +133,23 @@ final class DashboardStore: ObservableObject {
            let cached = try? JSONDecoder().decode(WeatherSnapshot.self, from: data) {
             weather = cached
         }
+        let encryptedItems = privacyVault.cachedTodayItems()
+        if !encryptedItems.isEmpty {
+            todayItems = encryptedItems
+        }
         if let data = defaults.data(forKey: notesCacheKey(config)),
            let cached = try? JSONDecoder().decode([TodayItem].self, from: data) {
-            todayItems = cached
+            if encryptedItems.isEmpty {
+                todayItems = cached
+                try? privacyVault.replaceTodayItems(cached)
+            }
+            defaults.removeObject(forKey: notesCacheKey(config))
         }
+    }
+
+    func clearSensitiveCache() {
+        todayItems.removeAll()
+        try? privacyVault.replaceTodayItems([])
     }
 
     private func loadWeather(config: AppConfig) async -> WeatherSnapshot? {
