@@ -61,11 +61,13 @@ struct VoiceNoteServerSettingsView: View {
                 Text("修改服务器地址或 Token 后，旧服务器的记事和提醒会立即失效，并从新服务器重新读取。")
             }
 
-            Section("默认地址") {
+            Section {
                 Button("恢复当前版本默认地址") {
                     draft.voiceNotesURLString = AppConfig.defaultVoiceNotesURL
                     testResult = nil
                 }
+            } header: {
+                Text("默认地址")
             } footer: {
                 Text(
                     ServerEnvironment.current == .lan
