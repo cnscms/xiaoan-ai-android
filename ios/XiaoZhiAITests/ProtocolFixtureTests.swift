@@ -75,9 +75,15 @@ final class ProtocolFixtureTests: XCTestCase {
             config.visionURLString,
             "http://sql.ms48.com:8003/mcp/vision/explain"
         )
+        XCTAssertEqual(
+            config.voiceNotesURLString,
+            "http://sql.ms48.com:19090"
+        )
+        XCTAssertTrue(config.voiceNotesToken.isEmpty)
         XCTAssertNotNil(config.otaURL)
         XCTAssertNotNil(config.websocketURL)
         XCTAssertNotNil(config.visionURL)
+        XCTAssertNotNil(config.voiceNotesURL)
         XCTAssertTrue(config.isComplete)
     }
 
@@ -93,6 +99,10 @@ final class ProtocolFixtureTests: XCTestCase {
         XCTAssertEqual(
             ServerEnvironment.lan.defaultVisionURL,
             "http://192.168.0.20:8003/mcp/vision/explain"
+        )
+        XCTAssertEqual(
+            ServerEnvironment.lan.defaultVoiceNotesURL,
+            "http://192.168.0.20:19090"
         )
         XCTAssertEqual(ServerEnvironment.lan.displayName, "小安内网")
     }
@@ -118,6 +128,10 @@ final class ProtocolFixtureTests: XCTestCase {
         XCTAssertEqual(
             config.visionURLString,
             "http://sql.ms48.com:8003/mcp/vision/explain"
+        )
+        XCTAssertEqual(
+            config.voiceNotesURLString,
+            "http://sql.ms48.com:19090"
         )
     }
 

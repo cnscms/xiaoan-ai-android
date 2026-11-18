@@ -6,6 +6,7 @@ struct XiaoZhiAIApp: App {
     @StateObject private var conversationStore: ConversationStore
     @StateObject private var dashboardStore: DashboardStore
     @StateObject private var privacyVaultStore: PrivacyVaultStore
+    @StateObject private var voiceNotesStore: VoiceNotesStore
 
     init() {
         let configStore = AppConfigStore()
@@ -21,13 +22,17 @@ struct XiaoZhiAIApp: App {
             wrappedValue: DashboardStore(privacyVault: privacyVaultStore)
         )
         _privacyVaultStore = StateObject(wrappedValue: privacyVaultStore)
+        _voiceNotesStore = StateObject(
+            wrappedValue: VoiceNotesStore(configStore: configStore)
+        )
     }
 
     var body: some Scene {
         WindowGroup {
             ConversationView(
                 store: conversationStore,
-                dashboard: dashboardStore
+                dashboard: dashboardStore,
+                voiceNotes: voiceNotesStore
             )
                 .preferredColorScheme(.light)
         }

@@ -46,7 +46,14 @@ struct SettingsView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .keyboardType(.URL)
+                    TextField("VoiceNote 服务地址", text: $draft.voiceNotesURLString)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.URL)
                     SecureField("Token（服务端关闭鉴权时留空）", text: $draft.token)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    SecureField("VoiceNote Token", text: $draft.voiceNotesToken)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 }
@@ -146,12 +153,13 @@ struct SettingsView: View {
                         draft.otaURLString = AppConfig.defaultOTAURL
                         draft.websocketURLString = AppConfig.defaultWebSocketURL
                         draft.visionURLString = AppConfig.defaultVisionURL
+                        draft.voiceNotesURLString = AppConfig.defaultVoiceNotesURL
                     }
                 } footer: {
                     Text(
                         ServerEnvironment.current == .lan
-                            ? "内网版默认使用 192.168.0.20:8002 / 8001 / 8003。"
-                            : "域名版默认使用 sql.ms48.com:8002 / 8001 / 8003。生产环境建议改用 HTTPS/WSS。"
+                            ? "内网版默认使用 192.168.0.20:8002 / 8001 / 8003 / 19090。"
+                            : "域名版默认使用 sql.ms48.com:8002 / 8001 / 8003 / 19090。生产环境建议改用 HTTPS/WSS。"
                     )
                 }
 

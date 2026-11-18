@@ -4,11 +4,13 @@ import SwiftUI
 struct ConversationView: View {
     @ObservedObject var store: ConversationStore
     @ObservedObject var dashboard: DashboardStore
+    @ObservedObject var voiceNotes: VoiceNotesStore
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var input = ""
     @State private var showSettings = false
     @State private var showPrivacyVault = false
+    @State private var showVoiceNotes = false
     @State private var showSubtitles = true
     @State private var todoExpanded = false
     @State private var didAutoConnect = false
@@ -89,6 +91,17 @@ struct ConversationView: View {
                 }
             )
         }
+        .sheet(isPresented: $showVoiceNotes) {
+            VoiceNotesView(
+                store: voiceNotes,
+                onOpenSettings: {
+                    showVoiceNotes = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        showSettings = true
+                    }
+                }
+            )
+        }
         .fullScreenCover(
             item: Binding(
                 get: { store.videoRequest },
@@ -136,6 +149,11 @@ struct ConversationView: View {
         }
         .onChange(of: scenePhase) { phase in
             if phase == .active {
+                refreshDashboard()
+            }
+        }
+        .onChange(of: showVoiceNotes) { isPresented in
+            if !isPresented {
                 refreshDashboard()
             }
         }
@@ -270,40 +288,58 @@ struct ConversationView: View {
 
     private var todayCard: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    todoExpanded.toggle()
-                }
-            } label: {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text("待办提醒")
-                            .font(.subheadline.weight(.bold))
-                            .foregroundStyle(.white)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Button {
+                        showVoiceNotes = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "book.closed.fill")
+                                .font(.caption)
+                            Text("待办提醒")
+                                .font(.subheadline.weight(.bold))
+                        }
+                        .foregroundStyle(.white)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("打开完整语音记事本")
 
-                        Spacer()
+                    Spacer()
 
-                        Text("\(dashboard.todayItems.count) 条")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(.white.opacity(0.16))
-                            .clipShape(Capsule())
+                    Text("\(dashboard.todayItems.count) 条")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(.white.opacity(0.16))
+                        .clipShape(Capsule())
 
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            todoExpanded.toggle()
+                        }
+                    } label: {
                         Image(systemName: todoExpanded ? "chevron.up" : "chevron.down")
                             .font(.caption.weight(.bold))
                             .foregroundStyle(.white.opacity(0.82))
+                            .frame(width: 30, height: 24)
                     }
-
-                    Text(todayHint)
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.82))
-                        .lineLimit(todoExpanded ? 2 : 1)
-                        .multilineTextAlignment(.leading)
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(todoExpanded ? "收起待办" : "展开待办")
                 }
+
+                Text(todayHint)
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.82))
+                    .lineLimit(todoExpanded ? 2 : 1)
+                    .multilineTextAlignment(.leading)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            todoExpanded.toggle()
+                        }
+                    }
             }
-            .buttonStyle(.plain)
 
             if todoExpanded {
                 Divider()
@@ -321,6 +357,20 @@ struct ConversationView: View {
                         }
                     }
                 }
+
+                Button {
+                    showVoiceNotes = true
+                } label: {
+                    HStack {
+                        Label("打开完整语音记事本", systemImage: "note.text")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                    }
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.vertical, 5)
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 14)

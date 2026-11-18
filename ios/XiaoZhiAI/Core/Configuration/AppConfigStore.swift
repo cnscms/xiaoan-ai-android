@@ -29,11 +29,19 @@ final class AppConfigStore: ObservableObject {
         }
 
         loaded.token = keychain.string(for: "auth_token") ?? loaded.token
+        loaded.voiceNotesToken = keychain.string(for: "voice_notes_token")
+            ?? loaded.voiceNotesToken
         if loaded.otaURLString.isEmpty {
             loaded.otaURLString = AppConfig.defaultOTAURL
         }
         if loaded.websocketURLString.isEmpty {
             loaded.websocketURLString = AppConfig.defaultWebSocketURL
+        }
+        if loaded.visionURLString.isEmpty {
+            loaded.visionURLString = AppConfig.defaultVisionURL
+        }
+        if loaded.voiceNotesURLString.isEmpty {
+            loaded.voiceNotesURLString = AppConfig.defaultVoiceNotesURL
         }
         loaded.clientID = identity.clientID
         loaded.deviceID = identity.deviceID
@@ -48,8 +56,10 @@ final class AppConfigStore: ObservableObject {
         value.deviceID = config.deviceID
 
         keychain.set(value.token, for: "auth_token")
+        keychain.set(value.voiceNotesToken, for: "voice_notes_token")
         var persisted = value
         persisted.token = ""
+        persisted.voiceNotesToken = ""
         if let data = try? JSONEncoder().encode(persisted) {
             defaults.set(data, forKey: storageKey)
         }

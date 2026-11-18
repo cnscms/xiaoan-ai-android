@@ -39,6 +39,15 @@ enum ServerEnvironment: String {
         }
     }
 
+    var defaultVoiceNotesURL: String {
+        switch self {
+        case .domain:
+            return "http://sql.ms48.com:19090"
+        case .lan:
+            return "http://192.168.0.20:19090"
+        }
+    }
+
     var displayName: String {
         switch self {
         case .domain:
@@ -62,11 +71,17 @@ struct AppConfig: Codable, Equatable {
         ServerEnvironment.current.defaultVisionURL
     }
 
+    static var defaultVoiceNotesURL: String {
+        ServerEnvironment.current.defaultVoiceNotesURL
+    }
+
     var displayName: String
     var otaURLString: String
     var websocketURLString: String
     var visionURLString: String
+    var voiceNotesURLString: String
     var token: String
+    var voiceNotesToken: String
     var clientID: String
     var deviceID: String
     var mcpEnabled: Bool
@@ -79,7 +94,9 @@ struct AppConfig: Codable, Equatable {
         otaURLString: String = AppConfig.defaultOTAURL,
         websocketURLString: String = AppConfig.defaultWebSocketURL,
         visionURLString: String = AppConfig.defaultVisionURL,
+        voiceNotesURLString: String = AppConfig.defaultVoiceNotesURL,
         token: String = "",
+        voiceNotesToken: String = "",
         clientID: String,
         deviceID: String,
         mcpEnabled: Bool = false,
@@ -91,7 +108,9 @@ struct AppConfig: Codable, Equatable {
         self.otaURLString = otaURLString
         self.websocketURLString = websocketURLString
         self.visionURLString = visionURLString
+        self.voiceNotesURLString = voiceNotesURLString
         self.token = token
+        self.voiceNotesToken = voiceNotesToken
         self.clientID = clientID
         self.deviceID = deviceID
         self.mcpEnabled = mcpEnabled
@@ -114,7 +133,15 @@ struct AppConfig: Codable, Equatable {
             String.self,
             forKey: .visionURLString
         ) ?? AppConfig.defaultVisionURL
+        voiceNotesURLString = try container.decodeIfPresent(
+            String.self,
+            forKey: .voiceNotesURLString
+        ) ?? AppConfig.defaultVoiceNotesURL
         token = try container.decodeIfPresent(String.self, forKey: .token) ?? ""
+        voiceNotesToken = try container.decodeIfPresent(
+            String.self,
+            forKey: .voiceNotesToken
+        ) ?? ""
         clientID = try container.decodeIfPresent(String.self, forKey: .clientID) ?? ""
         deviceID = try container.decodeIfPresent(String.self, forKey: .deviceID) ?? ""
         mcpEnabled = try container.decodeIfPresent(Bool.self, forKey: .mcpEnabled) ?? false
@@ -134,7 +161,9 @@ struct AppConfig: Codable, Equatable {
         case otaURLString
         case websocketURLString
         case visionURLString
+        case voiceNotesURLString
         case token
+        case voiceNotesToken
         case clientID
         case deviceID
         case mcpEnabled
@@ -155,6 +184,10 @@ struct AppConfig: Codable, Equatable {
         Self.networkURL(from: visionURLString, schemes: ["http", "https"])
     }
 
+    var voiceNotesURL: URL? {
+        Self.networkURL(from: voiceNotesURLString, schemes: ["http", "https"])
+    }
+
     var isComplete: Bool {
         !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && (otaURL != nil || websocketURL != nil)
@@ -166,7 +199,16 @@ struct AppConfig: Codable, Equatable {
         otaURLString = otaURLString.trimmingCharacters(in: .whitespacesAndNewlines)
         websocketURLString = websocketURLString.trimmingCharacters(in: .whitespacesAndNewlines)
         visionURLString = visionURLString.trimmingCharacters(in: .whitespacesAndNewlines)
+        voiceNotesURLString = voiceNotesURLString.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        while voiceNotesURLString.hasSuffix("/") {
+            voiceNotesURLString.removeLast()
+        }
         token = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        voiceNotesToken = voiceNotesToken.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
         clientID = clientID.trimmingCharacters(in: .whitespacesAndNewlines)
         deviceID = deviceID.trimmingCharacters(in: .whitespacesAndNewlines)
         weatherCity = weatherCity.trimmingCharacters(in: .whitespacesAndNewlines)
