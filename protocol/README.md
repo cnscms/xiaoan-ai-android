@@ -1,4 +1,4 @@
-# Shared XiaoZhi protocol fixtures
+# Shared xiaoan protocol fixtures
 
 These JSON files are the platform-neutral contract used by Android and iOS.
 Fixture changes should be reviewed before either client changes its message

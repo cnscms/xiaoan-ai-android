@@ -314,7 +314,7 @@ private fun TopBar(
         }
 
         Text(
-            text = "xiaozhi",
+            text = "xiaoan",
             color = AuraPrimary,
             style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold),
             modifier = Modifier.align(Alignment.Center)

@@ -1,8 +1,8 @@
-# XiaoZhiAI iOS
+# xiaoan iOS
 
 ![iOS CI](https://github.com/cnscms/xiaoan-ai-android/actions/workflows/ios.yml/badge.svg)
 
-Native SwiftUI client for the same XiaoZhi backend used by the Android app.
+Native SwiftUI client for the same xiaoan backend used by the Android app.
 
 ## Defaults
 
