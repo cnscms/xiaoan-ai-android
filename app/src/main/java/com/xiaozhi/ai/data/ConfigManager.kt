@@ -35,7 +35,15 @@ class ConfigManager(private val context: Context) {
         val configJson = sharedPreferences.getString(KEY_CONFIG, null)
         return if (configJson != null) {
             try {
-                gson.fromJson(configJson, XiaozhiConfig::class.java)
+                val loaded = gson.fromJson(configJson, XiaozhiConfig::class.java)
+                loaded.copy(
+                    voiceNotesUrl = loaded.voiceNotesUrl
+                        ?.takeIf { it.isNotBlank() }
+                        ?: XiaozhiConfig.DEFAULT_VOICE_NOTES_URL,
+                    voiceNotesToken = loaded.voiceNotesToken.orEmpty(),
+                    voiceNotesPhone = loaded.voiceNotesPhone.orEmpty(),
+                    voiceNotesBound = loaded.voiceNotesBound
+                )
             } catch (e: Exception) {
                 XiaozhiConfig.createDefault()
             }

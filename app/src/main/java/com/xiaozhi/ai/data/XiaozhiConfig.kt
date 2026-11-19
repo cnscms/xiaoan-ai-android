@@ -11,10 +11,16 @@ data class XiaozhiConfig(
     val macAddress: String,
     val uuid: String,
     val token: String,
+    val voiceNotesUrl: String? = XiaozhiConfig.DEFAULT_VOICE_NOTES_URL,
+    val voiceNotesToken: String? = "",
+    val voiceNotesPhone: String? = "",
+    val voiceNotesBound: Boolean = false,
     val mcpEnabled: Boolean = false,
     val mcpServers: List<McpServer> = emptyList()
 ) {
     companion object {
+        const val DEFAULT_VOICE_NOTES_URL = "http://192.168.0.20:19090"
+
         /**
          * 创建默认配置
          */
@@ -27,6 +33,10 @@ data class XiaozhiConfig(
                 macAddress = "",
                 uuid = generateRandomUuid(),
                 token = "test-token",
+                voiceNotesUrl = DEFAULT_VOICE_NOTES_URL,
+                voiceNotesToken = "",
+                voiceNotesPhone = "",
+                voiceNotesBound = false,
                 mcpEnabled = false,
                 mcpServers = listOf(
                     McpServer("示例MCP服务器", "ws://example.com/mcp", false)

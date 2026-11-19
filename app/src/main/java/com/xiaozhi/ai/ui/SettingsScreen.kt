@@ -51,7 +51,8 @@ object AethericColors {
 fun SettingsScreen(
     config: XiaozhiConfig,
     onConfigChange: (XiaozhiConfig) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onOpenVoiceNote: () -> Unit
 ) {
     val context = LocalContext.current
     val configManager = remember { ConfigManager(context) }
@@ -226,6 +227,33 @@ fun SettingsScreen(
                             onValueChange = { editedConfig = editedConfig.copy(token = it) },
                             placeholder = "test-token"
                         )
+                    }
+                }
+
+                item {
+                    SettingsSection(title = "语音记事本") {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(onClick = onOpenVoiceNote)
+                        ) {
+                            Text(
+                                "VoiceNote 手机号绑定",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = AethericColors.OnSurface
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                if (editedConfig.voiceNotesBound) {
+                                    "已绑定 ${editedConfig.voiceNotesPhone.orEmpty()}"
+                                } else {
+                                    "未绑定手机号 · 点击配置服务器并绑定"
+                                },
+                                fontSize = 13.sp,
+                                color = AethericColors.OnSurfaceVariant
+                            )
+                        }
                     }
                 }
 

@@ -17,6 +17,7 @@ import androidx.navigation.compose.rememberNavController
 import com.xiaozhi.ai.data.ConfigManager
 import com.xiaozhi.ai.ui.ConversationScreen
 import com.xiaozhi.ai.ui.SettingsScreen
+import com.xiaozhi.ai.ui.VoiceNoteBindingScreen
 import com.xiaozhi.ai.ui.theme.DarkColorScheme
 import com.xiaozhi.ai.ui.theme.YTheme
 import com.xiaozhi.ai.viewmodel.ConversationViewModel
@@ -24,6 +25,7 @@ import com.xiaozhi.ai.viewmodel.ConversationViewModel
 sealed class Screen(val route: String) {
     object Conversation : Screen("conversation")
     object Settings : Screen("settings")
+    object VoiceNoteBinding : Screen("voice_note_binding")
 }
 
 class MainActivity : ComponentActivity() {
@@ -105,6 +107,26 @@ class MainActivity : ComponentActivity() {
                                             }
                                         }
                                     }
+                                },
+                                onOpenVoiceNote = {
+                                    navController.navigate(Screen.VoiceNoteBinding.route)
+                                }
+                            )
+                        }
+
+                        composable(Screen.VoiceNoteBinding.route) {
+                            var editedConfig by remember {
+                                mutableStateOf(configManager.loadConfig())
+                            }
+                            VoiceNoteBindingScreen(
+                                config = editedConfig,
+                                onConfigChange = { newConfig ->
+                                    configManager.saveConfig(newConfig)
+                                    editedConfig = newConfig
+                                    conversationViewModel.updateConfig(newConfig)
+                                },
+                                onBack = {
+                                    navController.popBackStack()
                                 }
                             )
                         }

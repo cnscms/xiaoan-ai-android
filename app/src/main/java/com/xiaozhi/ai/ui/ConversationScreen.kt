@@ -417,6 +417,15 @@ private fun CenterPanel(
             color = AuraText,
             style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Black)
         )
+        val subtitle = stateSubtitle(state, isConnected)
+        if (subtitle.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(7.dp))
+            Text(
+                text = subtitle,
+                color = AuraSubText,
+                style = TextStyle(fontSize = 13.sp)
+            )
+        }
     }
 }
 
@@ -428,7 +437,7 @@ private fun stateTitle(state: ConversationState, isConnected: Boolean): String {
         ConversationState.CONNECTING -> "连接中..."
         ConversationState.LISTENING -> "正在倾听..."
         ConversationState.PROCESSING -> "正在思考..."
-        ConversationState.SPEAKING -> "正在回答..."
+        ConversationState.SPEAKING -> "正在说话中..."
         ConversationState.IDLE -> "准备就绪"
     }
 }
@@ -441,7 +450,7 @@ private fun stateSubtitle(state: ConversationState, isConnected: Boolean): Strin
         ConversationState.CONNECTING -> "正在建立连接"
         ConversationState.LISTENING -> "正在为您服务"
         ConversationState.PROCESSING -> "正在生成回复"
-        ConversationState.SPEAKING -> "正在回复您"
+        ConversationState.SPEAKING -> "播放中，说“小安小安”或“你好小安”可打断"
         ConversationState.IDLE -> ""
     }
 }

@@ -16,6 +16,7 @@ import com.xiaozhi.ai.data.XiaozhiConfig
 import com.xiaozhi.ai.network.WebSocketEvent
 import com.xiaozhi.ai.network.WebSocketManager
 import com.xiaozhi.ai.network.OtaService
+import com.xiaozhi.ai.wakeword.ReferenceWakeWordEngine
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -42,6 +43,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
     private val webSocketManager = WebSocketManager(application)
     private val audioManager = EnhancedAudioManager(application)
     private val otaService = OtaService()
+    private var wakeWordEngine: ReferenceWakeWordEngine? = null
 
     // 状态管理
     private val _state = MutableStateFlow(ConversationState.IDLE)
@@ -81,6 +83,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
     init {
         // 仅启动事件监听
         startEventListening()
+        observeStateForWakeWord()
     }
 
     /**
@@ -97,6 +100,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             isAudioInitialized = true
             _errorMessage.value = null // 清除可能存在的错误信息
             Log.d(TAG, "音频系统初始化成功")
+            ensureWakeWordEngine()
         }
     }
     
@@ -450,6 +454,9 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
     private fun handleBinaryMessage(data: ByteArray) {
         
         Log.d(TAG, "收到二进制消息，长度: ${data.size}")
+        if (_state.value != ConversationState.SPEAKING) {
+            _state.value = ConversationState.SPEAKING
+        }
         audioManager.playAudio(data)
     }
 
@@ -481,6 +488,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         }
 
         isAutoMode = false
+        wakeWordEngine?.setPaused(true)
         _state.value = ConversationState.LISTENING
         audioManager.startRecording()
         
@@ -498,6 +506,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         }
 
         isAutoMode = true
+        wakeWordEngine?.setPaused(true)
         _state.value = ConversationState.LISTENING
         audioManager.startRecording()
         
@@ -549,6 +558,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             return
         }
 
+        wakeWordEngine?.setPaused(true)
         _state.value = ConversationState.LISTENING
         audioManager.startRecording()
         
@@ -720,7 +730,48 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
 
     override fun onCleared() {
         super.onCleared()
+        wakeWordEngine?.stop()
+        wakeWordEngine = null
         audioManager.cleanup()
         webSocketManager.cleanup()
+    }
+
+    private fun ensureWakeWordEngine() {
+        if (wakeWordEngine != null) {
+            wakeWordEngine?.start()
+            return
+        }
+        wakeWordEngine = ReferenceWakeWordEngine(
+            getApplication<Application>(),
+            object : ReferenceWakeWordEngine.Listener {
+                override fun onWake(keyword: String) {
+                    Log.i(TAG, "本地唤醒词命中: $keyword")
+                    if (!_isConnected.value) {
+                        return
+                    }
+                    if (_state.value == ConversationState.SPEAKING) {
+                        interrupt()
+                    }
+                    if (_state.value == ConversationState.IDLE) {
+                        startAutoConversation()
+                    }
+                }
+
+                override fun onListeningChanged(listening: Boolean) {
+                    Log.d(TAG, "本地唤醒监听状态: $listening")
+                }
+            }
+        ).also { it.start() }
+    }
+
+    private fun observeStateForWakeWord() {
+        viewModelScope.launch {
+            _state.collect { state ->
+                val pauseWakeWord = state == ConversationState.CONNECTING ||
+                    state == ConversationState.LISTENING ||
+                    state == ConversationState.PROCESSING
+                wakeWordEngine?.setPaused(pauseWakeWord)
+            }
+        }
     }
 }

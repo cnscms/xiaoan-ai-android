@@ -13,8 +13,8 @@ android {
         applicationId = "com.xiaozhi.ai"
         minSdk = 29
         targetSdk = 35
-        versionCode = 20000
-        versionName = "2.0.0"
+        versionCode = 20007
+        versionName = "2.0.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -73,6 +73,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.opus.v131)
+    implementation(files("libs/sherpa/sherpa-classes.jar"))
 
     // WebSocket
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
