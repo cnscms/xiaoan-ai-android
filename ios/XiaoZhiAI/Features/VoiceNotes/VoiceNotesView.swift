@@ -21,6 +21,9 @@ struct VoiceNotesView: View {
     @State private var createMode: VoiceNoteCreateMode?
     @State private var operationError: String?
     @State private var showServerSettings = false
+    @State private var phoneNumber = ""
+    @State private var phoneBindingError: String?
+    @State private var isBindingPhone = false
 
     private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -36,6 +39,11 @@ struct VoiceNotesView: View {
             Group {
                 if !store.hasToken {
                     setupView
+                } else if store.deviceBinding == nil && store.isLoading {
+                    ProgressView("正在检查手机号绑定…")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if !store.hasPhoneBinding {
+                    phoneBindingView
                 } else {
                     content
                 }
@@ -63,7 +71,11 @@ struct VoiceNotesView: View {
                     } label: {
                         Image(systemName: "plus")
                     }
-                    .disabled(!store.hasToken || store.isMutating)
+                    .disabled(
+                        !store.hasToken
+                            || !store.hasPhoneBinding
+                            || store.isMutating
+                    )
                     .accessibilityLabel("新建记事或提醒")
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -147,13 +159,20 @@ struct VoiceNotesView: View {
 
     private var content: some View {
         VStack(spacing: 0) {
-            Label(
-                "也可以直接对小安说“帮我记一下…”或“明天下午三点提醒我…”",
-                systemImage: "mic.fill"
-            )
+            HStack {
+                Label(
+                    "也可以直接对小安说“帮我记一下…”",
+                    systemImage: "mic.fill"
+                )
+                Spacer()
+                if let phone = store.deviceBinding?.phone {
+                    Text(phone)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
             .font(.caption)
             .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .background(Color.blue.opacity(0.06))
@@ -184,6 +203,96 @@ struct VoiceNotesView: View {
             }
         }
         .searchable(text: $searchText, prompt: "搜索标题或内容")
+    }
+
+    private var phoneBindingView: some View {
+        VStack(spacing: 16) {
+            ZStack {
+                Circle()
+                    .fill(Color.orange.opacity(0.12))
+                    .frame(width: 128, height: 128)
+                Image(systemName: "iphone")
+                    .font(.system(size: 48, weight: .medium))
+                    .foregroundStyle(.orange)
+            }
+
+            Text("绑定手机号后才能使用语音记事")
+                .font(.title3.weight(.bold))
+                .multilineTextAlignment(.center)
+
+            Text("VoiceNote 会把手机号和当前设备 ID 绑定，\n已有记事和提醒会自动回填到这个手机号。")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(4)
+
+            Text("Device-Id  \(store.configStore.config.deviceID)")
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(Color.secondary.opacity(0.08))
+                .clipShape(Capsule())
+
+            TextField("请输入 11 位手机号", text: $phoneNumber)
+                .keyboardType(.phonePad)
+                .textContentType(.telephoneNumber)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 13))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 13)
+                        .stroke(Color.secondary.opacity(0.18))
+                )
+                .padding(.horizontal, 26)
+
+            if let phoneBindingError, !phoneBindingError.isEmpty {
+                Text(phoneBindingError)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 28)
+            }
+
+            Button {
+                bindPhone()
+            } label: {
+                HStack(spacing: 8) {
+                    if isBindingPhone {
+                        ProgressView()
+                            .tint(.white)
+                    } else {
+                        Image(systemName: "link")
+                    }
+                    Text(isBindingPhone ? "正在绑定…" : "绑定手机号")
+                }
+                .font(.headline)
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 13)
+                .background(primary)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
+            .buttonStyle(.plain)
+            .disabled(
+                isBindingPhone
+                    || phoneNumber.trimmingCharacters(
+                        in: .whitespacesAndNewlines
+                    ).isEmpty
+            )
+            .padding(.horizontal, 26)
+
+            Button("重新检查绑定状态") {
+                Task {
+                    await store.refresh()
+                }
+            }
+            .font(.footnote)
+            .disabled(store.isLoading)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     @ViewBuilder
@@ -351,6 +460,25 @@ struct VoiceNotesView: View {
             } catch {
                 operationError = error.localizedDescription
             }
+        }
+    }
+
+    private func bindPhone() {
+        let value = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else {
+            return
+        }
+
+        isBindingPhone = true
+        phoneBindingError = nil
+        Task {
+            do {
+                try await store.bindPhone(value)
+                phoneNumber = ""
+            } catch {
+                phoneBindingError = error.localizedDescription
+            }
+            isBindingPhone = false
         }
     }
 

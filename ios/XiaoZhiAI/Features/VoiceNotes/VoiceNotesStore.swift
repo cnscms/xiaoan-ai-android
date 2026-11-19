@@ -5,6 +5,7 @@ import Foundation
 final class VoiceNotesStore: ObservableObject {
     @Published private(set) var notes: [VoiceNoteRecord] = []
     @Published private(set) var reminders: [VoiceReminderRecord] = []
+    @Published private(set) var deviceBinding: VoiceDeviceBinding?
     @Published private(set) var isLoading = false
     @Published private(set) var isMutating = false
     @Published private(set) var errorMessage: String?
@@ -36,10 +37,15 @@ final class VoiceNotesStore: ObservableObject {
         !configStore.config.voiceNotesToken.isEmpty
     }
 
+    var hasPhoneBinding: Bool {
+        deviceBinding?.bound == true
+    }
+
     func refresh() async {
         guard hasToken else {
             notes.removeAll()
             reminders.removeAll()
+            deviceBinding = nil
             errorMessage = nil
             return
         }
@@ -54,13 +60,16 @@ final class VoiceNotesStore: ObservableObject {
 
         do {
             let config = configStore.config
+            async let fetchedBinding = client.fetchDeviceBinding(config: config)
             async let fetchedNotes = client.fetchNotes(config: config)
             async let fetchedReminders = client.fetchReminders(config: config)
+            let resolvedBinding = try await fetchedBinding
             let resolvedNotes = try await fetchedNotes
             let resolvedReminders = try await fetchedReminders
             guard generation == configGeneration else {
                 return
             }
+            deviceBinding = resolvedBinding
             notes = resolvedNotes
             reminders = resolvedReminders
         } catch {
@@ -91,6 +100,27 @@ final class VoiceNotesStore: ObservableObject {
                 content: value,
                 title: title.trimmingCharacters(in: .whitespacesAndNewlines)
             )
+            await refresh()
+        } catch {
+            errorMessage = error.localizedDescription
+            throw error
+        }
+    }
+
+    func bindPhone(_ phone: String) async throws {
+        let value = phone.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else {
+            return
+        }
+        isMutating = true
+        defer { isMutating = false }
+
+        do {
+            deviceBinding = try await client.bindPhone(
+                config: configStore.config,
+                phone: value
+            )
+            errorMessage = nil
             await refresh()
         } catch {
             errorMessage = error.localizedDescription
@@ -176,6 +206,7 @@ final class VoiceNotesStore: ObservableObject {
         isLoading = false
         notes.removeAll()
         reminders.removeAll()
+        deviceBinding = nil
         errorMessage = nil
         Task {
             await refresh()

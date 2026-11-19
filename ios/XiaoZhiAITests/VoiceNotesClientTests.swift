@@ -116,6 +116,60 @@ final class VoiceNotesClientTests: XCTestCase {
         )
     }
 
+    func testDevicePhoneBinding() async throws {
+        MockURLProtocol.requestHandler = { request in
+            XCTAssertEqual(request.url?.path, "/api/device-binding")
+            let data: Data
+            if request.httpMethod == "GET" {
+                data = Data(
+                    """
+                    {
+                      "ok": true,
+                      "bound": false,
+                      "deviceId": "02:00:00:00:00:01"
+                    }
+                    """.utf8
+                )
+            } else {
+                XCTAssertEqual(request.httpMethod, "POST")
+                data = Data(
+                    """
+                    {
+                      "ok": true,
+                      "binding": {
+                        "deviceId": "02:00:00:00:00:01",
+                        "owner": "xiaozhi:02:00:00:00:00:01",
+                        "phone": "138****0001",
+                        "backfilledNotes": 2,
+                        "backfilledReminders": 1
+                      }
+                    }
+                    """.utf8
+                )
+            }
+            return (
+                HTTPURLResponse(
+                    url: try XCTUnwrap(request.url),
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: nil
+                )!,
+                data
+            )
+        }
+
+        let client = makeClient()
+        let initial = try await client.fetchDeviceBinding(config: makeConfig())
+        XCTAssertFalse(initial.bound)
+
+        let binding = try await client.bindPhone(
+            config: makeConfig(),
+            phone: "13800000001"
+        )
+        XCTAssertTrue(binding.bound)
+        XCTAssertEqual(binding.phone, "138****0001")
+    }
+
     private func makeClient() -> VoiceNotesClient {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]

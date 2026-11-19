@@ -59,6 +59,14 @@ struct VoiceReminderRecord: Codable, Equatable, Identifiable {
     }
 }
 
+struct VoiceDeviceBinding: Decodable, Equatable {
+    let ok: Bool
+    let bound: Bool
+    let deviceId: String
+    let phone: String?
+    let updatedAt: String?
+}
+
 struct VoiceNotesClient {
     enum VoiceNotesError: LocalizedError {
         case missingURL
@@ -96,6 +104,44 @@ struct VoiceNotesClient {
         )
         let data = try await perform(request)
         return try decode(NotesResponse.self, from: data).notes
+    }
+
+    func fetchDeviceBinding(
+        config: AppConfig
+    ) async throws -> VoiceDeviceBinding {
+        let request = try makeRequest(
+            config: config,
+            path: "/api/device-binding",
+            query: [
+                URLQueryItem(name: "deviceId", value: config.deviceID)
+            ]
+        )
+        let data = try await perform(request)
+        return try decode(VoiceDeviceBinding.self, from: data)
+    }
+
+    func bindPhone(
+        config: AppConfig,
+        phone: String
+    ) async throws -> VoiceDeviceBinding {
+        let body = try JSONEncoder().encode(
+            BindPhoneRequest(deviceId: config.deviceID, phone: phone)
+        )
+        let request = try makeRequest(
+            config: config,
+            path: "/api/device-binding",
+            method: "POST",
+            body: body
+        )
+        let data = try await perform(request)
+        let response = try decode(BindPhoneResponse.self, from: data)
+        return VoiceDeviceBinding(
+            ok: response.ok,
+            bound: true,
+            deviceId: response.binding.deviceId,
+            phone: response.binding.phone,
+            updatedAt: nil
+        )
     }
 
     func fetchReminders(
@@ -304,4 +350,19 @@ private struct CreateReminderRequest: Encodable {
 
 private struct CancelReminderRequest: Encodable {
     let deviceId: String
+}
+
+private struct BindPhoneRequest: Encodable {
+    let deviceId: String
+    let phone: String
+}
+
+private struct BindPhoneResponse: Decodable {
+    let ok: Bool
+    let binding: Binding
+
+    struct Binding: Decodable {
+        let deviceId: String
+        let phone: String
+    }
 }
